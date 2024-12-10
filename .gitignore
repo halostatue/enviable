@@ -1,0 +1,10 @@
+.ez
+/.elixir_ls/
+/.fetch
+/_build/
+/cover/
+/deps/
+/doc/
+/tmp/
+enviable-*.tar
+erl_crash.dump
