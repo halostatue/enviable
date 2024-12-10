@@ -1,0 +1,87 @@
+name: Reviewdog
+
+on:
+  pull_request:
+
+jobs:
+  misspell:
+    if: ${{ github.event.action != 'closed' }}
+    name: Misspell
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: reviewdog/action-misspell@18ffb61effb93b47e332f185216be7e49592e7e1 # v1.26.1
+        with:
+          path: |
+            *.md
+            lib
+            licenses
+            mix.exs
+            support
+            test
+
+  actionlint:
+    if: ${{ github.event.action != 'closed' }}
+    name: Actionlint
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: reviewdog/action-actionlint@08ef4afa963243489a457cca426f705ce4e0d1a5 # v1.60.0
+
+  credo:
+    if: ${{ github.event.action != 'closed' }}
+    name: 'Credo'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # v1.18.2
+        id: install
+        with:
+          otp-version: '27'
+          elixir-version: '1.17'
+
+      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          key: builds@elixir-${{ steps.install.outputs.elixir-version }}-otp-${{ steps.install.outputs.otp-version }}-mix-${{ hashFiles('mix.lock') }}
+          path: |
+            deps
+            _build
+
+      - run: mix 'do' deps.get, deps.compile
+
+      - uses: reviewdog/action-setup@3f401fe1d58fe77e10d665ab713057375e39b887 # v1.3.0
+
+      - name: 'mix credo --strict | reviewdog'
+        run: |
+          mix credo suggest --strict --format=flycheck |
+            reviewdog \
+              -efm="%f:%l:%c: %t: %m" \
+              -efm="%f:%l: %t: %m" \
+              -name="credo" \
+              -reporter="github-pr-check" -level="error"
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ github.token }}
