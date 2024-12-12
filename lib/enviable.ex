@@ -1,29 +1,22 @@
 defmodule Enviable do
-  @moduledoc """
-  Enviable is a small collection of functions and delegates that makes working with
-  operating system environment functions a little easier. It exists for two reasons:
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.replace(~r/# Enviable\n\n/, "")
 
-  - Functions like `Enviable.put_env_new/2` do not exist in `System` and are easier to
-    read than either `System.put_env/2` or `System.put_env/1` in conjunction with
-    `Ssytem.get_env/2`.
-
-  - Modules in dependencies can reliably be used or `include`d in configuration files in
-    ways that in-source functions cannot be.
-  """
-
+  @external_resource "README.md"
   @doc """
   Set an environment variable value only if it is not yet set.
 
   ## Examples
 
-    iex> Enviable.put_env_new("PORT", "3000")
-    :ok
-    iex> Enviable.get_env("PORT")
-    "3000"
-    iex> Enviable.put_env_new("PORT", "5000")
-    :ok
-    iex> Enviable.get_env("PORT")
-    "3000"
+      iex> Enviable.put_env_new("PORT", "3000")
+      :ok
+      iex> Enviable.get_env("PORT")
+      "3000"
+      iex> Enviable.put_env_new("PORT", "5000")
+      :ok
+      iex> Enviable.get_env("PORT")
+      "3000"
   """
   @spec put_env(String.t(), binary()) :: :ok
   def put_env_new(varname, value) do
@@ -50,44 +43,44 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.get_env_boolean("COLOR")
-    false
+      iex> Enviable.get_env_boolean("COLOR")
+      false
 
-    iex> Enviable.get_env_boolean("COLOR", default: true)
-    true
+      iex> Enviable.get_env_boolean("COLOR", default: true)
+      true
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.get_env_boolean("COLOR")
-    true
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.get_env_boolean("COLOR")
+      true
 
-    iex> Enviable.put_env("COLOR", "something")
-    iex> Enviable.get_env_boolean("COLOR")
-    false
+      iex> Enviable.put_env("COLOR", "something")
+      iex> Enviable.get_env_boolean("COLOR")
+      false
 
-    iex> Enviable.put_env("COLOR", "oui")
-    iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"])
-    true
+      iex> Enviable.put_env("COLOR", "oui")
+      iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"])
+      true
 
-    iex> Enviable.put_env("COLOR", "OUI")
-    iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"])
-    false
-    iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"], downcase: true)
-    true
+      iex> Enviable.put_env("COLOR", "OUI")
+      iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"])
+      false
+      iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"], downcase: true)
+      true
 
-    iex> Enviable.put_env("COLOR", "NON")
-    iex> Enviable.get_env_boolean("COLOR", falsy: ["non"])
-    true
-    iex> Enviable.get_env_boolean("COLOR", falsy: ["non"], downcase: true)
-    false
+      iex> Enviable.put_env("COLOR", "NON")
+      iex> Enviable.get_env_boolean("COLOR", falsy: ["non"])
+      true
+      iex> Enviable.get_env_boolean("COLOR", falsy: ["non"], downcase: true)
+      false
 
-    iex> Enviable.get_env_boolean("COLOR", default: nil)
-    ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with non-boolean `default` value
+      iex> Enviable.get_env_boolean("COLOR", default: nil)
+      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with non-boolean `default` value
 
-    iex> Enviable.get_env_boolean("COLOR", downcase: nil)
-    ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with invalid `downcase` value
+      iex> Enviable.get_env_boolean("COLOR", downcase: nil)
+      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with invalid `downcase` value
 
-    iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
-    ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with both `truthy` and `falsy` options
+      iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
+      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with both `truthy` and `falsy` options
   """
   @spec get_env_boolean(String.t(), keyword) :: boolean()
   defdelegate get_env_boolean(varname, opts \\ []), to: Enviable.Boolean
@@ -110,42 +103,42 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.fetch_env_boolean("COLOR")
-    :error
+      iex> Enviable.fetch_env_boolean("COLOR")
+      :error
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.fetch_env_boolean("COLOR")
-    {:ok, true}
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.fetch_env_boolean("COLOR")
+      {:ok, true}
 
-    iex> Enviable.put_env("COLOR", "something")
-    iex> Enviable.fetch_env_boolean("COLOR")
-    {:ok, false}
+      iex> Enviable.put_env("COLOR", "something")
+      iex> Enviable.fetch_env_boolean("COLOR")
+      {:ok, false}
 
-    iex> Enviable.put_env("COLOR", "oui")
-    iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"])
-    {:ok, true}
+      iex> Enviable.put_env("COLOR", "oui")
+      iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"])
+      {:ok, true}
 
-    iex> Enviable.put_env("COLOR", "OUI")
-    iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"])
-    {:ok, false}
-    iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"], downcase: true)
-    {:ok, true}
+      iex> Enviable.put_env("COLOR", "OUI")
+      iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"])
+      {:ok, false}
+      iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"], downcase: true)
+      {:ok, true}
 
-    iex> Enviable.put_env("COLOR", "NON")
-    iex> Enviable.fetch_env_boolean("COLOR", falsy: ["non"])
-    {:ok, true}
-    iex> Enviable.fetch_env_boolean("COLOR", falsy: ["non"], downcase: true)
-    {:ok, false}
+      iex> Enviable.put_env("COLOR", "NON")
+      iex> Enviable.fetch_env_boolean("COLOR", falsy: ["non"])
+      {:ok, true}
+      iex> Enviable.fetch_env_boolean("COLOR", falsy: ["non"], downcase: true)
+      {:ok, false}
 
-    # Any `default` value is ignored.
-    iex> Enviable.fetch_env_boolean("COLOR", default: nil)
-    :error
+      # Any `default` value is ignored.
+      iex> Enviable.fetch_env_boolean("COLOR", default: nil)
+      :error
 
-    iex> Enviable.fetch_env_boolean("COLOR", downcase: nil)
-    ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with invalid `downcase` value
+      iex> Enviable.fetch_env_boolean("COLOR", downcase: nil)
+      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with invalid `downcase` value
 
-    iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
-    ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with both `truthy` and `falsy` options
+      iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
+      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with both `truthy` and `falsy` options
   """
   @spec fetch_env_boolean(String.t(), keyword) :: {:ok, boolean()} | :error
   defdelegate fetch_env_boolean(varname, opts \\ []), to: Enviable.Boolean
@@ -168,42 +161,42 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.fetch_env_boolean!("COLOR")
-    ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
+      iex> Enviable.fetch_env_boolean!("COLOR")
+      ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.fetch_env_boolean!("COLOR")
-    true
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.fetch_env_boolean!("COLOR")
+      true
 
-    iex> Enviable.put_env("COLOR", "something")
-    iex> Enviable.fetch_env_boolean!("COLOR")
-    false
+      iex> Enviable.put_env("COLOR", "something")
+      iex> Enviable.fetch_env_boolean!("COLOR")
+      false
 
-    iex> Enviable.put_env("COLOR", "oui")
-    iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"])
-    true
+      iex> Enviable.put_env("COLOR", "oui")
+      iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"])
+      true
 
-    iex> Enviable.put_env("COLOR", "OUI")
-    iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"])
-    false
-    iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"], downcase: true)
-    true
+      iex> Enviable.put_env("COLOR", "OUI")
+      iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"])
+      false
+      iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"], downcase: true)
+      true
 
-    iex> Enviable.put_env("COLOR", "NON")
-    iex> Enviable.fetch_env_boolean!("COLOR", falsy: ["non"])
-    true
-    iex> Enviable.fetch_env_boolean!("COLOR", falsy: ["non"], downcase: true)
-    false
+      iex> Enviable.put_env("COLOR", "NON")
+      iex> Enviable.fetch_env_boolean!("COLOR", falsy: ["non"])
+      true
+      iex> Enviable.fetch_env_boolean!("COLOR", falsy: ["non"], downcase: true)
+      false
 
-    # Any `default` value is ignored.
-    iex> Enviable.fetch_env_boolean!("COLOR", default: nil)
-    ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
+      # Any `default` value is ignored.
+      iex> Enviable.fetch_env_boolean!("COLOR", default: nil)
+      ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
 
-    iex> Enviable.fetch_env_boolean!("COLOR", downcase: nil)
-    ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with invalid `downcase` value
+      iex> Enviable.fetch_env_boolean!("COLOR", downcase: nil)
+      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with invalid `downcase` value
 
-    iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"], falsy: ["non"])
-    ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with both `truthy` and `falsy` options
+      iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"], falsy: ["non"])
+      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with both `truthy` and `falsy` options
   """
   @spec fetch_env_boolean!(String.t(), keyword) :: boolean()
   defdelegate fetch_env_boolean!(varname, opts \\ []), to: Enviable.Boolean
@@ -225,29 +218,29 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.get_env_integer("COLOR")
-    nil
+      iex> Enviable.get_env_integer("COLOR")
+      nil
 
-    iex> Enviable.get_env_integer("COLOR", default: 255)
-    255
+      iex> Enviable.get_env_integer("COLOR", default: 255)
+      255
 
-    iex> Enviable.get_env_integer("COLOR", default: "255")
-    255
+      iex> Enviable.get_env_integer("COLOR", default: "255")
+      255
 
-    iex> Enviable.get_env_integer("COLOR", default: 3.5)
-    ** (ArgumentError) cannot execute Enviable.get_env_integer/2 with non-integer `default` value
+      iex> Enviable.get_env_integer("COLOR", default: 3.5)
+      ** (ArgumentError) cannot execute Enviable.get_env_integer/2 with non-integer `default` value
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.get_env_integer("COLOR")
-    1
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.get_env_integer("COLOR")
+      1
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.get_env_integer("COLOR")
-    ** (Enviable.ConversionError) could not convert environment variable "COLOR" to type integer
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.get_env_integer("COLOR")
+      ** (Enviable.ConversionError) could not convert environment variable "COLOR" to type integer
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.get_env_integer("COLOR", base: 16)
-    255
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.get_env_integer("COLOR", base: 16)
+      255
   """
   @spec get_env_integer(String.t(), keyword) :: integer() | nil
   defdelegate get_env_integer(varname, opts \\ []), to: Enviable.Integer
@@ -265,20 +258,20 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.fetch_env_integer("COLOR")
-    :error
+      iex> Enviable.fetch_env_integer("COLOR")
+      :error
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.fetch_env_integer("COLOR")
-    {:ok, 1}
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.fetch_env_integer("COLOR")
+      {:ok, 1}
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.fetch_env_integer("COLOR")
-    :error
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.fetch_env_integer("COLOR")
+      :error
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.fetch_env_integer("COLOR", base: 16)
-    {:ok, 255}
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.fetch_env_integer("COLOR", base: 16)
+      {:ok, 255}
   """
   @spec fetch_env_integer(String.t(), keyword) :: {:ok, integer()} | :error
   defdelegate fetch_env_integer(varname, opts \\ []), to: Enviable.Integer
@@ -300,20 +293,20 @@ defmodule Enviable do
 
   ## Examples
 
-    iex> Enviable.fetch_env_integer!("COLOR")
-    ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
+      iex> Enviable.fetch_env_integer!("COLOR")
+      ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
 
-    iex> Enviable.put_env("COLOR", "1")
-    iex> Enviable.fetch_env_integer!("COLOR")
-    1
+      iex> Enviable.put_env("COLOR", "1")
+      iex> Enviable.fetch_env_integer!("COLOR")
+      1
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.fetch_env_integer!("COLOR")
-    ** (Enviable.ConversionError) could not convert environment variable "COLOR" to type integer
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.fetch_env_integer!("COLOR")
+      ** (Enviable.ConversionError) could not convert environment variable "COLOR" to type integer
 
-    iex> Enviable.put_env("COLOR", "ff")
-    iex> Enviable.fetch_env_integer!("COLOR", base: 16)
-    255
+      iex> Enviable.put_env("COLOR", "ff")
+      iex> Enviable.fetch_env_integer!("COLOR", base: 16)
+      255
   """
   @spec fetch_env_integer!(String.t(), keyword) :: integer() | nil
   defdelegate fetch_env_integer!(varname, opts \\ []), to: Enviable.Integer

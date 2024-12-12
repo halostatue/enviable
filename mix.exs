@@ -4,7 +4,7 @@ defmodule Enviable.MixProject do
   def project do
     [
       app: :enviable,
-      version: "1.0.0",
+      version: "1.0.1",
       description: "Useful functions for working with environment variables",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
@@ -12,10 +12,10 @@ defmodule Enviable.MixProject do
       name: "Enviable",
       source_url: "https://github.com/halostatue/enviable",
       docs: [
-        main: "readme",
+        main: "Enviable",
         extras: [
-          "README.md",
           "Contributing.md",
+          "Code-of-Conduct.md": [filename: "Code-of-Conduct.md", title: "Code of Conduct"],
           "Changelog.md": [filename: "Changelog.md", title: "CHANGELOG"],
           "Licence.md": [filename: "Licence.md", title: "Licence"],
           "licences/APACHE-2.0.txt": [
