@@ -9,6 +9,7 @@ defmodule EnviableTest do
     System.delete_env(@test_var)
     System.delete_env("PORT")
     System.delete_env("COLOR")
+    System.delete_env("NAME")
   end
 
   describe "Enviable wraps System env functions" do

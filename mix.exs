@@ -4,7 +4,7 @@ defmodule Enviable.MixProject do
   def project do
     [
       app: :enviable,
-      version: "1.0.1",
+      version: "1.1.0",
       description: "Useful functions for working with environment variables",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
@@ -42,12 +42,13 @@ defmodule Enviable.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :public_key]
     ]
   end
 
   defp deps do
     [
+      {:jason, "~> 1.0", optional: true},
       {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},

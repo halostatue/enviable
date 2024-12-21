@@ -3,44 +3,31 @@
 - code :: https://github.com/halostatue/enviable
 - issues :: https://github.com/halostatue/enviable/issues
 
-Enviable is a small collection of functions and delegates that makes working
-with operating system environment functions a little easier. It exists for two
-reasons:
+Enviable is a small collection of functions to make working with environment
+variables easier when configuring Elixir projects. It is designed to work
+configuration environment loaders like [Dotenvy][Dotenvy] and provides robust
+data conversion like [jetenv][jetenv].
 
-- Functions like `Enviable.put_env_new/2` do not exist in `System` and are
-  easier to read than either `System.put_env/2` or `System.put_env/1` in
-  conjunction with `System.get_env/2`.
-
-- Modules in dependencies can reliably be used or `include`d in configuration
-  files in ways that in-source functions cannot be.
-
-Delegates are defined for `System.delete_env/1`, `System.fetch_env/1`,
-`System.fetch_env!/1`, `System.get_env/0`, `System.get_env/2`,
-`System.put_env/1`, and `System.put_env/2`.
+Enviable 1.1 extends conversion to more types than boolean and integer
+conversion.
 
 ## Usage
 
-This will typically be used in `config/*.exs` files alongside [Dotenvy][dotenvy]
-or similar configuration tools based around environment variables.
+Enviable will typically be imported in `config/runtime.exs` after `Config`, but
+may be used anywhere that environment variables are read.
 
 ```elixir
 # config/runtime.exs
-include Config
-include Enviable
+import Config
+import Enviable
 
 client = fetch_env!("CLIENT")
-Dotenvy.source([".env", ".env.#{client}", System.get_env()])
+Dotenvy.source([".env", ".env.#{client}", get_env()])
 
 config :my_app,
   key: fetch_env!("SECRET_KEY"),
-  port: fetch_env_integer!("PORT"),
-  ssl: fetch_env_boolean!("SSL_ENABLED")
-```
-
-```elixir
-# config/dev.exs
-include Config
-Enviable.put_env_new("SSL_ENABLED", false)
+  port: fetch_env_as!("PORT", :integer),
+  ssl: get_env_as("SSL_ENABLED", :boolean)
 ```
 
 ## Installation
@@ -51,7 +38,7 @@ Enviable can be installed by adding `enviable` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:enviable, "~> 0.1.0"}
+    {:enviable, "~> 1.1.0"}
   ]
 end
 ```
@@ -60,11 +47,9 @@ Documentation is found on [HexDocs][docs].
 
 ## Semantic Versioning
 
-`Enviable` uses a [Semantic Versioning][semver] scheme with one significant
-change:
-
-- When PATCH is zero (`0`), it will be omitted from version references.
+`Enviable` follows [Semantic Versioning 2.0][semver].
 
 [docs]: https://hexdocs.pm/enviable
 [semver]: http://semver.org/
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+[jetenv]: https://hexdocs.pm/jetenv/readme.html
