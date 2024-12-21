@@ -1,9 +1,43 @@
 defmodule Enviable do
-  @moduledoc "README.md"
-             |> File.read!()
-             |> String.replace(~r/# Enviable\n\n/, "")
+  @moduledoc """
+  Enviable is a small collection of functions to make working with environment variables
+  easier when configuring Elixir projects. It is designed to work configuration
+  environment loaders like [Dotenvy][] and provides robust data conversion like
+  [jetenv][].
 
-  @external_resource "README.md"
+  ## Usage
+
+  Enviable will typically be imported in `config/runtime.exs` after `Config`, but may be
+  used anywhere that environment variables are read.
+
+  ```elixir
+  # config/runtime.exs
+  import Config
+  import Enviable
+
+  client = fetch_env!("CLIENT")
+  Dotenvy.source([".env", ".env.\#{client}", get_env()])
+
+  # Before
+  #
+  # config :my_app,
+  #   key: System.fetch_env!("SECRET_KEY"),
+  #   port: System.fetch_env!("PORT") |> String.to_integer(),
+  #   ssl: System.get_env("SSL_ENABLED") in ~w[1 true]
+
+  # After
+  config :my_app,
+    key: fetch_env!("SECRET_KEY"),
+    port: fetch_env_as!("PORT", :integer),
+    ssl: get_env_as("SSL_ENABLED", :boolean)
+  ```
+
+  [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+  [jetenv]: https://hexdocs.pm/jetenv/readme.html
+  """
+
+  alias Enviable.Conversion
+
   @doc """
   Set an environment variable value only if it is not yet set.
 
@@ -18,16 +52,103 @@ defmodule Enviable do
       iex> Enviable.get_env("PORT")
       "3000"
   """
-  @spec put_env(String.t(), binary()) :: :ok
+  @spec put_env_new(String.t(), String.t()) :: :ok
   def put_env_new(varname, value) do
     put_env(varname, get_env(varname, value))
+  end
+
+  @doc """
+  Returns the value of an environment variable converted to the target `type` or a default
+  value.
+
+  See `Enviable.Conversion` for supported type conversions and options.
+
+  ## Examples
+
+  ```elixir
+  iex> Enviable.get_env_as("NAME", :atom)
+  nil
+
+  iex> Enviable.put_env("NAME", "get_env_as")
+  iex> Enviable.get_env_as("NAME", :atom)
+  :get_env_as
+
+  iex> Enviable.put_env("NAME", "GET_ENV_AS")
+  iex> Enviable.get_env_as("NAME", :safe_atom, downcase: true)
+  :get_env_as
+
+  iex> Enviable.get_env_as("COLOR", :float)
+  nil
+
+  iex> Enviable.get_env_as("COLOR", :float, default: "3.5")
+  3.5
+
+  iex> Enviable.get_env_as("COLOR", :float, default: 3.5)
+  3.5
+
+  iex> Enviable.put_env("COLOR", "3")
+  iex> Enviable.get_env_as("COLOR", :float)
+  3.0
+
+  iex> Enviable.put_env("COLOR", "3.1")
+  iex> Enviable.get_env_as("COLOR", :float)
+  3.1
+
+  iex> Enviable.get_env_as("COLOR", :base16)
+  nil
+
+  iex> red = Base.encode16("RED", case: :lower)
+  iex> Enviable.put_env("COLOR", red)
+  iex> Enviable.get_env_as("COLOR", :base16, case: :lower)
+  "RED"
+  iex> Enviable.get_env_as("COLOR", {:base16, :string}, case: :lower)
+  "RED"
+  iex> Enviable.get_env_as("COLOR", {:base16, :atom}, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.1.0"
+  @spec get_env_as(String.t(), Conversion.conversion(), keyword) :: nil | term()
+  def get_env_as(varname, type, opts \\ []) do
+    varname
+    |> get_env()
+    |> Conversion.convert_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable converted to the target `type` as `{:ok,
+  term()}` or `:error` if the variable is unset.
+
+  See `Enviable.Conversion` for supported type conversions and options.
+  """
+  @doc since: "1.1.0"
+  @spec fetch_env_as(String.t(), Conversion.conversion(), keyword) :: {:ok, term()} | :error
+  def fetch_env_as(varname, type, opts) do
+    case fetch_env(varname) do
+      :error -> :error
+      {:ok, value} -> {:ok, Conversion.convert_as(value, varname, type, opts)}
+    end
+  end
+
+  @doc """
+  Returns the value of an environment variable converted to the target `type` or raises an
+  exception if the variable is unset.
+
+  See `Enviable.Conversion` for supported type conversions and options.
+  """
+  @doc since: "1.1.0"
+  @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword) :: term()
+  def fetch_env_as!(varname, type, opts) do
+    varname
+    |> fetch_env!()
+    |> Conversion.convert_as(varname, type, opts)
   end
 
   @doc """
   Returns the value of an environment variable as a `t:boolean/0` value.
 
   By default, the values `"1"` and `"true"` are considered `true` values. Any other value,
-  including unset variable, will be considered `false`.
+  including an unset environment variable, will be considered `false`.
 
   This function accepts the following conversion options:
 
@@ -74,16 +195,16 @@ defmodule Enviable do
       false
 
       iex> Enviable.get_env_boolean("COLOR", default: nil)
-      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with non-boolean `default` value
+      ** (ArgumentError) could not convert environment variable "COLOR" to type boolean: non-boolean `default` value
 
       iex> Enviable.get_env_boolean("COLOR", downcase: nil)
-      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with invalid `downcase` value
+      ** (ArgumentError) could not convert environment variable "COLOR" to type boolean: invalid `downcase` value
 
       iex> Enviable.get_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
-      ** (ArgumentError) cannot execute Enviable.get_env_boolean/2 with both `truthy` and `falsy` options
+      ** (ArgumentError) could not convert environment variable "COLOR" to type boolean: `truthy` and `falsy` options both provided
   """
   @spec get_env_boolean(String.t(), keyword) :: boolean()
-  defdelegate get_env_boolean(varname, opts \\ []), to: Enviable.Boolean
+  def get_env_boolean(varname, opts \\ []), do: get_env_as(varname, :boolean, opts)
 
   @doc """
   Returns the value of an environment variable as `{:ok, t:boolean/0}` value or `:error`
@@ -130,18 +251,15 @@ defmodule Enviable do
       iex> Enviable.fetch_env_boolean("COLOR", falsy: ["non"], downcase: true)
       {:ok, false}
 
-      # Any `default` value is ignored.
+      # Options are ignored if the environment variable is not set.
       iex> Enviable.fetch_env_boolean("COLOR", default: nil)
       :error
 
-      iex> Enviable.fetch_env_boolean("COLOR", downcase: nil)
-      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with invalid `downcase` value
-
       iex> Enviable.fetch_env_boolean("COLOR", truthy: ["oui"], falsy: ["non"])
-      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean/2 with both `truthy` and `falsy` options
+      :error
   """
   @spec fetch_env_boolean(String.t(), keyword) :: {:ok, boolean()} | :error
-  defdelegate fetch_env_boolean(varname, opts \\ []), to: Enviable.Boolean
+  def fetch_env_boolean(varname, opts \\ []), do: fetch_env_as(varname, :boolean, opts)
 
   @doc """
   Returns the value of an environment variable as a `t:boolean/0` value or raises an
@@ -188,18 +306,15 @@ defmodule Enviable do
       iex> Enviable.fetch_env_boolean!("COLOR", falsy: ["non"], downcase: true)
       false
 
-      # Any `default` value is ignored.
+      # Any options are ignored.
       iex> Enviable.fetch_env_boolean!("COLOR", default: nil)
       ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
 
-      iex> Enviable.fetch_env_boolean!("COLOR", downcase: nil)
-      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with invalid `downcase` value
-
       iex> Enviable.fetch_env_boolean!("COLOR", truthy: ["oui"], falsy: ["non"])
-      ** (ArgumentError) cannot execute Enviable.fetch_env_boolean!/2 with both `truthy` and `falsy` options
+      ** (System.EnvError) could not fetch environment variable "COLOR" because it is not set
   """
   @spec fetch_env_boolean!(String.t(), keyword) :: boolean()
-  defdelegate fetch_env_boolean!(varname, opts \\ []), to: Enviable.Boolean
+  def fetch_env_boolean!(varname, opts \\ []), do: fetch_env_as!(varname, :boolean, opts)
 
   @doc """
   Returns the value of an environment variable as a `t:integer/0` value or `nil` if the
@@ -228,7 +343,7 @@ defmodule Enviable do
       255
 
       iex> Enviable.get_env_integer("COLOR", default: 3.5)
-      ** (ArgumentError) cannot execute Enviable.get_env_integer/2 with non-integer `default` value
+      ** (ArgumentError) could not convert environment variable "COLOR" to type integer: non-integer `default` value
 
       iex> Enviable.put_env("COLOR", "1")
       iex> Enviable.get_env_integer("COLOR")
@@ -243,7 +358,7 @@ defmodule Enviable do
       255
   """
   @spec get_env_integer(String.t(), keyword) :: integer() | nil
-  defdelegate get_env_integer(varname, opts \\ []), to: Enviable.Integer
+  def get_env_integer(varname, opts \\ []), do: get_env_as(varname, :integer, opts)
 
   @doc """
   Returns the value of an environment variable as `{:ok, t:integer/0}` or `:error` if the
@@ -267,14 +382,14 @@ defmodule Enviable do
 
       iex> Enviable.put_env("COLOR", "ff")
       iex> Enviable.fetch_env_integer("COLOR")
-      :error
+      ** (Enviable.ConversionError) could not convert environment variable "COLOR" to type integer
 
       iex> Enviable.put_env("COLOR", "ff")
       iex> Enviable.fetch_env_integer("COLOR", base: 16)
       {:ok, 255}
   """
   @spec fetch_env_integer(String.t(), keyword) :: {:ok, integer()} | :error
-  defdelegate fetch_env_integer(varname, opts \\ []), to: Enviable.Integer
+  def fetch_env_integer(varname, opts \\ []), do: fetch_env_as(varname, :integer, opts)
 
   @doc """
   Returns the value of an environment variable as a `t:integer/0` value or `nil` if the
@@ -309,7 +424,7 @@ defmodule Enviable do
       255
   """
   @spec fetch_env_integer!(String.t(), keyword) :: integer() | nil
-  defdelegate fetch_env_integer!(varname, opts \\ []), to: Enviable.Integer
+  def fetch_env_integer!(varname, opts \\ []), do: fetch_env_as!(varname, :integer, opts)
 
   @doc """
   Deletes an environment variable, removing `varname` from the environment.
@@ -318,10 +433,10 @@ defmodule Enviable do
   defdelegate delete_env(varname), to: System
 
   @doc """
-  Returns the value of the given environment variable or :error if not found.
+  Returns the value of the given environment variable or `:error` if not found.
 
-  If the environment variable varname is set, then {:ok, value} is returned where value is
-  a string. If varname is not set, :error is returned.
+  If the environment variable `varname` is set, then `{:ok, value}` is returned where
+  value is a string. If `varname` is not set, `:error` is returned.
 
   ## Examples
 
@@ -338,8 +453,7 @@ defmodule Enviable do
   @doc """
   Returns the value of the given environment variable or raises if not found.
 
-  Same as `get_env/1` but raises instead of returning `nil` when the variable is
-  not set.
+  Same as `get_env/1` but raises instead of returning `nil` when the variable is not set.
 
   ## Examples
 
@@ -357,8 +471,8 @@ defmodule Enviable do
   @doc """
   Returns all system environment variables.
 
-  The returned value is a map containing name-value pairs.
-  Variable names and their values are strings.
+  The returned value is a map containing name-value pairs. Variable names and their values
+  are strings.
   """
   @spec get_env() :: %{optional(String.t()) => String.t()}
   defdelegate get_env, to: System
@@ -366,10 +480,9 @@ defmodule Enviable do
   @doc """
   Returns the value of the given environment variable.
 
-  The returned value of the environment variable
-  `varname` is a string. If the environment variable
-  is not set, returns the string specified in `default` or
-  `nil` if none is specified.
+  The returned value of the environment variable `varname` is a string. If the environment
+  variable is not set, returns the string specified in `default` or `nil` if none is
+  specified.
 
   ## Examples
 
@@ -395,7 +508,7 @@ defmodule Enviable do
 
   Sets a new `value` for the environment variable `varname`.
   """
-  @spec put_env(String.t(), binary()) :: :ok
+  @spec put_env(String.t(), String.t()) :: :ok
   defdelegate put_env(varname, value), to: System
 
   @doc """
