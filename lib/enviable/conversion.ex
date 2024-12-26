@@ -126,6 +126,24 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.1.0"
   @type convert_json :: :json
 
+  @typedoc """
+  Indicates a conversion to log level atoms.
+
+  This conversion is always case-insensitive, and the result will be one of `:emergency`,
+  `:alert`, `:critical`, `:error`, `:warning`, `:warn`, `:notice`, `:info`, `:debug`,
+  `:all`, or `:none` (values supported by `Logger.configure/1`).
+
+  ### Options
+
+  - `:default`: The default value. Must be one of the permitted values for
+    `Logger.level/1` or `Logger.configure/1`.
+  """
+  @typedoc since: "1.2.0"
+  @type convert_log_level :: :log_level
+
+  @log_levels [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none]
+  @log_levels_map Map.new(@log_levels, &{Atom.to_string(&1), &1})
+
   module_options = """
 
   ### Options
@@ -399,6 +417,10 @@ defmodule Enviable.Conversion do
     end
   end
 
+  defp convert_to(:log_level, value, _config) do
+    Map.fetch(@log_levels_map, String.downcase(value))
+  end
+
   defp convert_to(:module, value, _config) do
     {:ok, Module.concat([value])}
   end
@@ -524,6 +546,26 @@ defmodule Enviable.Conversion do
 
       _ ->
         {:error, "non-float `default` value"}
+    end
+  end
+
+  defp config_for(:log_level, opts) do
+    case Keyword.fetch(opts, :default) do
+      :error ->
+        {:ok, %{default: nil}}
+
+      {:ok, value} when is_atom(value) and value in @log_levels ->
+        {:ok, %{default: value}}
+
+      {:ok, value} when is_binary(value) ->
+        if level = @log_levels_map[value] do
+          {:ok, %{default: level}}
+        else
+          {:error, "invalid `default` value #{value}"}
+        end
+
+      {:ok, value} ->
+        {:error, "invalid `default` value #{inspect(value)}"}
     end
   end
 

@@ -1,5 +1,9 @@
 # Enviable Changelog
 
+## 1.2.0 / 2024-12-29
+
+- Added conversions for `log_level`.
+
 ## 1.1.0 / 2024-12-22
 
 - Extended conversions through `get_env_as/3`, `fetch_env_as/3`, and
