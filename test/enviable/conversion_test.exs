@@ -336,6 +336,44 @@ defmodule Enviable.ConversionTest do
     end
   end
 
+  describe "conversion: log_level" do
+    test "value nil" do
+      assert nil == convert_as(nil, :log_level)
+    end
+
+    test "value nil with default" do
+      assert :notice == convert_as(nil, :log_level, default: :notice)
+      assert :notice == convert_as(nil, :log_level, default: "notice")
+    end
+
+    for level <- [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none] do
+      test "value #{level}" do
+        assert unquote(level) == convert_as(Atom.to_string(unquote(level)), :log_level)
+        assert unquote(level) == convert_as(String.upcase(Atom.to_string(unquote(level))), :log_level)
+      end
+    end
+
+    test "value with default not a valid log level" do
+      assert_config_error(
+        "invalid `default` value :unknown",
+        "Emergency",
+        :log_level,
+        default: :unknown
+      )
+
+      assert_config_error(
+        "invalid `default` value unknown",
+        "Emergency",
+        :log_level,
+        default: "unknown"
+      )
+    end
+
+    test "value not in allowed" do
+      assert_conversion_error("Unknown", :log_level)
+    end
+  end
+
   describe "conversion: module" do
     test "value nil" do
       assert nil == convert_as(nil, :module)
