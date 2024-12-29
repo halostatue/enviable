@@ -3,6 +3,10 @@
 ## 1.2.0 / 2024-12-29
 
 - Added conversions for `log_level`.
+- Add Elixir 1.18 / OTP 27 to the test matrix.
+- Update dependencies.
+- Add mise configuration.
+- Fix dialyzer configuration.
 
 ## 1.1.0 / 2024-12-22
 
