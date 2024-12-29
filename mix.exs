@@ -4,7 +4,7 @@ defmodule Enviable.MixProject do
   def project do
     [
       app: :enviable,
-      version: "1.1.0",
+      version: "1.2.0",
       description: "Useful functions for working with environment variables",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
