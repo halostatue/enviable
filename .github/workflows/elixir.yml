@@ -83,5 +83,5 @@ jobs:
           restore-keys: |
             plts@elixir-${{ steps.install.outputs.elixir-version }}-otp-${{ steps.install.outputs.otp-version }}-mix-
 
-      - run: mix dialyzer
+      - run: mix dialyzer --format github
         if: matrix.dialyzer

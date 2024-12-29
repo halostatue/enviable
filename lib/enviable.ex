@@ -500,7 +500,7 @@ defmodule Enviable do
 
   """
   @spec get_env(String.t(), default) :: String.t() | default
-        when default: String.t() | default
+        when default: String.t() | nil
   defdelegate get_env(varname, default \\ nil), to: System
 
   @doc """
