@@ -8,3 +8,5 @@
 /tmp/
 enviable-*.tar
 erl_crash.dump
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
