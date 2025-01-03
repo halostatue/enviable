@@ -123,7 +123,7 @@ defmodule Enviable do
   """
   @doc since: "1.1.0"
   @spec fetch_env_as(String.t(), Conversion.conversion(), keyword) :: {:ok, term()} | :error
-  def fetch_env_as(varname, type, opts) do
+  def fetch_env_as(varname, type, opts \\ []) do
     case fetch_env(varname) do
       :error -> :error
       {:ok, value} -> {:ok, Conversion.convert_as(value, varname, type, opts)}
@@ -138,7 +138,7 @@ defmodule Enviable do
   """
   @doc since: "1.1.0"
   @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword) :: term()
-  def fetch_env_as!(varname, type, opts) do
+  def fetch_env_as!(varname, type, opts \\ []) do
     varname
     |> fetch_env!()
     |> Conversion.convert_as(varname, type, opts)

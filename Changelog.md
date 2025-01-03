@@ -1,5 +1,10 @@
 # Enviable Changelog
 
+## 1.2.1 / 2025-01-02
+
+- Fixed a function definition bug with `fetch_env_as/3` and `fetch_env_as!/3`
+  preventing them from being `fetch_env_as/2` and `fetch_env_as!/2`.
+
 ## 1.2.0 / 2024-12-29
 
 - Added conversions for `log_level`.
