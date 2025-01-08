@@ -3,6 +3,9 @@ defmodule Enviable.Conversion do
   All supported conversions and options for those conversions.
   """
 
+  atom_exhaustion =
+    "[Preventing atom exhaustion](https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion)"
+
   atom_options = """
   ### Options
 
@@ -12,8 +15,6 @@ defmodule Enviable.Conversion do
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
   - `:downcase`: See `t:opt_downcase/0`.
-
-  [pae]: https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion
   """
 
   @typedoc """
@@ -21,9 +22,9 @@ defmodule Enviable.Conversion do
 
   > #### Untrusted Input {: .warning}
   >
-  > This conversion routine uses `String.to_atom/1` and may result in atom exhaustion if
-  > used without the `:allowed` option. See [Preventing atom exhaustion][pae] from the
-  > Security Working Group of the Erlang Ecosystem Foundation.
+  > This conversion uses `String.to_atom/1` and may result in atom exhaustion if used
+  > without the `:allowed` option. See #{atom_exhaustion} from the Security Working Group
+  > of the Erlang Ecosystem Foundation.
 
   #{atom_options}
   """
@@ -35,10 +36,9 @@ defmodule Enviable.Conversion do
 
   > #### Untrusted Input {: .warning}
   >
-  > This conversion routine uses `String.to_existing_atom/1` which wil result in an
-  > exception if the resulting atom is not already known and if used without the
-  > `:allowed` option. See [Preventing atom exhaustion][pae] from the Security Working
-  > Group of the Erlang Ecosystem Foundation.
+  > This conversion uses `String.to_existing_atom/1` which will result in an exception if
+  > the resulting atom is not already known and if used without the `:allowed` option. See
+  > #{atom_exhaustion} from the Security Working Group of the Erlang Ecosystem Foundation.
 
   #{atom_options}
   """
@@ -97,6 +97,17 @@ defmodule Enviable.Conversion do
   @type convert_float :: :float
 
   @typedoc """
+  A value which can be serialized from JSON.
+  """
+  @type json ::
+          nil
+          | String.t()
+          | boolean()
+          | number()
+          | list(json)
+          | %{optional(String.t()) => json}
+
+  @typedoc """
   Indicates a conversion from JSON, which may result in `nil`, `t:binary/0`,
   `t:boolean/0`, `t:list/0`, `t:map/0`, or `t:number/0` values.
 
@@ -127,19 +138,24 @@ defmodule Enviable.Conversion do
   @type convert_json :: :json
 
   @typedoc """
-  Indicates a conversion to log level atoms.
+  Indicates a conversion to log level `t:atom/0` for `Logger.configure/1`.
 
   This conversion is always case-insensitive, and the result will be one of `:emergency`,
   `:alert`, `:critical`, `:error`, `:warning`, `:warn`, `:notice`, `:info`, `:debug`,
-  `:all`, or `:none` (values supported by `Logger.configure/1`).
+  `:all`, or `:none`.
 
   ### Options
 
-  - `:default`: The default value. Must be one of the permitted values for
-    `Logger.level/1` or `Logger.configure/1`.
+  - `:default`: The default atom value. Must be a valid value.
   """
   @typedoc since: "1.2.0"
   @type convert_log_level :: :log_level
+
+  @typedoc """
+  Supported log levels.
+  """
+  @typedoc since: "1.3.0"
+  @type log_level :: Logger.level() | :all | :none
 
   @log_levels [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none]
   @log_levels_map Map.new(@log_levels, &{Atom.to_string(&1), &1})
@@ -153,8 +169,6 @@ defmodule Enviable.Conversion do
   - `:default`: The `t:module/0` or `t:binary/0` value representing the atom value to use
     if the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
-
-  [pae]: https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion
   """
 
   @typedoc """
@@ -162,9 +176,9 @@ defmodule Enviable.Conversion do
 
   > #### Untrusted Input {: .warning}
   >
-  > This conversion routine uses `Module.concat/1` and may result in atom exhaustion if
-  > used without the `:allowed` option. See [Preventing atom exhaustion][pae] from the
-  > Security Working Group of the Erlang Ecosystem Foundation.
+  > This conversion uses `Module.concat/1` and may result in atom exhaustion if used
+  > without the `:allowed` option. See #{atom_exhaustion} from the Security Working Group
+  > of the Erlang Ecosystem Foundation.
 
   #{module_options}
   """
@@ -176,10 +190,9 @@ defmodule Enviable.Conversion do
 
   > #### Untrusted Input {: .warning}
   >
-  > This conversion routine uses `Module.safe_concat/1` which wil result in an exception
-  > if the resulting module is not already known and if used without the `:allowed`
-  > option. See [Preventing atom exhaustion][pae] from the Security Working Group of the
-  > Erlang Ecosystem Foundation.
+  > This conversion uses `Module.safe_concat/1` which will result in an exception if the
+  > resulting module is not already known and if used without the `:allowed` option. See
+  > #{atom_exhaustion} from the Security Working Group of the Erlang Ecosystem Foundation.
 
   #{module_options}
   """
@@ -200,28 +213,44 @@ defmodule Enviable.Conversion do
       `:Certificate` records, or an empty list.
     - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
       exception if none are found.
-    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raiuses an
+    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
       exception if one is not found.
   """
   @typedoc since: "1.1.0"
   @type convert_pem :: :pem
 
   @typedoc """
-  Indicates a conversion from an Erlang term (`:erlang`) or an Elixir term (`:elixir`) by
-  parsing and evaluating the environment variable value as code. This can be used for
-  tuples, complex map declarations, or other expressions difficult to represent with other
-  types.
+  Possible return types for `t:convert_pem/0` conversions.
 
-  Longer code blocks should be encoded as base 64 text and decoded as `{:base64, :erlang}`
-  or `{:base64, :elixir}`.
+  The return types are variant on the conversion `:filter` option value:
+
+  - `true`: either an unencrypted primary key `t:binary/0`  or a list of unencrypted
+    certificates (`[{:Certificate, ct, :not_encrypted}]`);
+  - `false`: an unmodified list of `t::public_key.pem_entry/0`.
+  - `:cert`: list of unencrypted certificates (`[{:Certificate, ct, :not_encrypted}]`).
+  - `:key`: unencrypted primary key `t:binary/0`
+
+  The default is `true`.
+  """
+  @typedoc since: "1.3.0"
+  @type pem ::
+          [:public_key.pem_entry()]
+          | binary()
+          | [{:Certificate, binary(), :not_encrypted}]
+
+  @typedoc """
+  Indicates a conversion from a Erlang code string (`:erlang`) by parsing and evaluating
+  the environment variable value.
+
+  This can be used for tuples, complex map declarations, or other expressions difficult to
+  represent with other types. Longer code blocks should be encoded as base 64 text and
+  decoded as `{:base64, :erlang}`.
 
   > #### Untrusted Input {: .error}
   >
-  > These conversion routnes parse and evaluate Erlang or Elixir code from environment
-  > variables in the context of your application. Do not use this with untrusted code.
-  >
-  > - Erlang code is parsed with `:erl_scan.string/1` and `:erl_parse.parse_term/1`.
-  > - Elixir code is parsed with `Code.string_to_quoted/1` and `Code.eval_quoted/1`.
+  > This function parses (with `:erl_scan.string/1`) and evaluates (with
+  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the
+  > context of your application. Do not use this with untrusted input.
 
   ## Examples
 
@@ -229,28 +258,50 @@ defmodule Enviable.Conversion do
   iex> Enviable.put_env("COLOR", "{ok, true}.")
   iex> Enviable.get_env_as("COLOR", :erlang)
   {:ok, true}
+  ```
+  """
+  @typedoc since: "1.1.0"
+  @type convert_erlang :: :erlang
 
+  @typedoc """
+  Indicates a conversion from a Elixir code string (`:elixir`) by parsing and evaluating
+  the environment variable value.
+
+  This can be used for tuples, complex map declarations, or other expressions difficult to
+  represent with other types. Longer code blocks should be encoded as base 64 text and
+  decoded as `{:base64, :elixir}`.
+
+  > #### Untrusted Input {: .error}
+  >
+  > This function parses (with `Code.string_to_quoted/1`) and evaluates (with
+  > `Code.eval_quoted/1`) elixir code from environment variables in the context of your
+  > application. Do not use this with untrusted input.
+
+  ## Examples
+
+  ```elixir
   iex> Enviable.put_env("PORT", "11000..11100//3")
   iex> Enviable.get_env_as("PORT", :elixir)
   11000..11100//3
   ```
   """
-  @typedoc since: "1.1.0"
-  @type convert_term :: :erlang | :elixir
+  @typedoc since: "1.3.0"
+  @type convert_elixir :: :elixir
 
   @typedoc since: "1.1.0"
   @type primitive ::
           convert_atom
-          | convert_safe_atom
           | convert_boolean
           | convert_charlist
+          | convert_elixir
+          | convert_erlang
           | convert_float
           | convert_integer
           | convert_json
           | convert_module
-          | convert_safe_module
           | convert_pem
-          | convert_term
+          | convert_safe_atom
+          | convert_safe_module
 
   @typedoc """
   Decodes the value from a base 16 encoded string. If a secondary type is provided,

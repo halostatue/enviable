@@ -6,10 +6,10 @@
 Enviable is a small collection of functions to make working with environment
 variables easier when configuring Elixir projects. It is designed to work
 configuration environment loaders like [Dotenvy][Dotenvy] and provides robust
-data conversion like [jetenv][jetenv].
+value conversion like [jetenv][jetenv].
 
-Enviable 1.1 extends conversion to more types than boolean and integer
-conversion.
+Enviable 1.3 adds explicit functions for retrieval and conversion of primitives
+and soft-deprecates `*_env_integer/2` and `*_env_boolean/2`.
 
 ## Usage
 
@@ -26,8 +26,8 @@ Dotenvy.source([".env", ".env.#{client}", get_env()])
 
 config :my_app,
   key: fetch_env!("SECRET_KEY"),
-  port: fetch_env_as!("PORT", :integer),
-  ssl: get_env_as("SSL_ENABLED", :boolean)
+  port: fetch_env_as_integer!("PORT"),
+  ssl: get_env_as_boolean("SSL_ENABLED")
 ```
 
 ## Installation
@@ -38,7 +38,7 @@ Enviable can be installed by adding `enviable` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:enviable, "~> 1.1.0"}
+    {:enviable, "~> 1.3"}
   ]
 end
 ```

@@ -4,7 +4,7 @@ defmodule Enviable.MixProject do
   def project do
     [
       app: :enviable,
-      version: "1.2.1",
+      version: "1.3.0",
       description: "Useful functions for working with environment variables",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
@@ -14,6 +14,7 @@ defmodule Enviable.MixProject do
       docs: [
         main: "Enviable",
         extras: [
+          "README.md",
           "Contributing.md",
           "Code-of-Conduct.md": [filename: "Code-of-Conduct.md", title: "Code of Conduct"],
           "Changelog.md": [filename: "Changelog.md", title: "CHANGELOG"],
@@ -23,7 +24,10 @@ defmodule Enviable.MixProject do
             title: "Apache License, version 2.0"
           ],
           "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"]
-        ]
+        ],
+        default_group_for_doc: fn metadata ->
+          if group = metadata[:group], do: "Functions: #{group}"
+        end
       ],
       package: [
         files: ~w(lib .formatter.exs mix.exs *.md),
