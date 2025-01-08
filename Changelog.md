@@ -1,5 +1,20 @@
 # Enviable Changelog
 
+## 1.3.0 / 2025-01-16
+
+- Added explicit functions for retrieval and conversion of primitives to assist
+  with language servers and IDEs as an alternative to `*_env_as/3` functions.
+  Most of these new functions are `*_env_as_TYPE/2`, but several are
+  `*_env_as_TYPE/1` as there are no applicable options.
+
+  Encoded conversions (`:base*`) do not have named functions and must be
+  accessed through `*_env_as/3`.
+
+- Soft-deprecated `*_env_integer` and `*_env_boolean` functions in favour of
+  `*_env_as_integer` and `*_env_as_boolean`. There will be at least one release
+  of Enviable 1.x which marks these functions as deprecated so that compiler
+  warnings are generated.
+
 ## 1.2.1 / 2025-01-02
 
 - Fixed a function definition bug with `fetch_env_as/3` and `fetch_env_as!/3`

@@ -333,6 +333,7 @@ defmodule Enviable.ConversionTest do
     test "with function engine" do
       assert_conversion_error("3.1", :json, engine: fn _ -> :error end)
       assert_conversion_error("3.1", :json, engine: fn _ -> raise "foo" end)
+      assert 3.1 === convert_as("3.1", :json)
     end
   end
 

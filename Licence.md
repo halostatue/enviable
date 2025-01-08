@@ -1,12 +1,12 @@
 # Licence
 
-Enviable is copyright © 2024 Austin Ziegler and is licensed under
+Enviable is copyright © 2024–2025 Austin Ziegler and is licensed under the
 [Apache License, version 2.0](licences/APACHE-2.0.txt). Portions of Enviable are
 adapted from the `System` module in [Elixir][elixir].
 
 ## Developer Certificate of Origin
 
-All contributors **must** certify they are able and willing to provide their
+All contributors **must** certify they are willing and able to provide their
 contributions under the terms of this project's licences with the certification
 of the [Developer Certificate of Origin (Version 1.1)](licences/dco.txt).
 

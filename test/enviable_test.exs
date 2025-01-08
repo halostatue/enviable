@@ -7,9 +7,8 @@ defmodule EnviableTest do
 
   setup do
     System.delete_env(@test_var)
-    System.delete_env("PORT")
-    System.delete_env("COLOR")
-    System.delete_env("NAME")
+    for v <- ~w[FLAG FLOAT JSON LOG_LEVEL NAME PEM PORT TERM UNSET], do: System.delete_env(v)
+    :ok
   end
 
   describe "Enviable wraps System env functions" do
