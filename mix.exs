@@ -11,24 +11,7 @@ defmodule Enviable.MixProject do
       deps: deps(),
       name: "Enviable",
       source_url: "https://github.com/halostatue/enviable",
-      docs: [
-        main: "Enviable",
-        extras: [
-          "README.md",
-          "Contributing.md",
-          "Code-of-Conduct.md": [filename: "Code-of-Conduct.md", title: "Code of Conduct"],
-          "Changelog.md": [filename: "Changelog.md", title: "CHANGELOG"],
-          "Licence.md": [filename: "Licence.md", title: "Licence"],
-          "licences/APACHE-2.0.txt": [
-            filename: "APACHE-2.0.txt",
-            title: "Apache License, version 2.0"
-          ],
-          "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"]
-        ],
-        default_group_for_doc: fn metadata ->
-          if group = metadata[:group], do: "Functions: #{group}"
-        end
-      ],
+      docs: docs(),
       package: [
         files: ~w(lib .formatter.exs mix.exs *.md),
         licenses: ["Apache-2.0"],
@@ -59,6 +42,27 @@ defmodule Enviable.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.2", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "Enviable",
+      extras: [
+        "README.md",
+        "CONTRIBUTING.md": [filename: "CONTRIBUTING.md", title: "Contributing"],
+        "CODE_OF_CONDUCT.md": [filename: "CODE_OF_CONDUCT.md", title: "Code of Conduct"],
+        "CHANGELOG.md": [filename: "CHANGELOG.md", title: "CHANGELOG"],
+        "LICENCE.md": [filename: "LICENCE.md", title: "Licence"],
+        "licences/APACHE-2.0.txt": [
+          filename: "APACHE-2.0.txt",
+          title: "Apache License, version 2.0"
+        ],
+        "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"]
+      ],
+      default_group_for_doc: fn metadata ->
+        if group = metadata[:group], do: "Functions: #{group}"
+      end
     ]
   end
 
