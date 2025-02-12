@@ -33,13 +33,14 @@ jobs:
           - elixir: '1.17'
             otp: '27'
             os: ubuntu-22.04
+          - elixir: '1.18'
+            otp: '27'
+            os: ubuntu-22.04
             check_formatted: true
             warnings_as_errors: true
             dialyzer: true
             credo: true
-          - elixir: '1.18'
-            otp: '27'
-            os: ubuntu-22.04
+            coveralls: true
 
     runs-on: ${{ matrix.os }}
 
@@ -75,7 +76,13 @@ jobs:
       - run: mix compile
         if: ${{ !matrix.warnings_as_errors }}
 
+      - run: mix coveralls.github
+        if: ${{ matrix.coveralls }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - run: mix test
+        if: ${{ !matrix.coveralls }}
 
       - run: mix credo --strict
         if: matrix.credo
