@@ -20,6 +20,12 @@ defmodule Enviable.MixProject do
           "Issues" => "https://github.com/halostatue/enviable/issues"
         }
       ],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.github": :test,
+        "coveralls.html": :test
+      ],
+      test_coverage: test_coverage(),
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
         plt_add_apps: [:mix],
@@ -38,8 +44,10 @@ defmodule Enviable.MixProject do
   defp deps do
     [
       {:jason, "~> 1.0", optional: true},
+      {:castore, "~> 1.0", only: [:dev, :test]},
       {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: [:test]},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
       {:styler, "~> 1.2", only: [:dev, :test], runtime: false}
     ]
@@ -72,5 +80,12 @@ defmodule Enviable.MixProject do
 
   defp elixirc_paths(_) do
     ~w(lib)
+  end
+
+  defp test_coverage do
+    [
+      tool: ExCoveralls,
+      ignore_modules: [KineticEcto.TestImage, KineticEcto.TestImage.HSLA, KineticEcto.TestImage.RGBA]
+    ]
   end
 end
