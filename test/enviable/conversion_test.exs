@@ -733,6 +733,96 @@ defmodule Enviable.ConversionTest do
     end
   end
 
+  describe "conversion: list" do
+    test "value nil" do
+      assert nil == convert_as(nil, :list)
+    end
+
+    test "defaults" do
+      assert ["1", "2", "3"] == convert_as("1,2,3", :list)
+    end
+
+    test "value as {:list, :integer} default delimiter" do
+      assert [1, 2, 3] == convert_as("1,2,3", {:list, :integer})
+    end
+
+    test "non-default delimiter" do
+      assert ["1", "2", "3"] == convert_as("1;2;3", :list, delimiter: ";")
+    end
+
+    test "list delimiter" do
+      assert ["1", "2", "3"] == convert_as("1,2;3", :list, delimiter: [",", ";"])
+    end
+
+    test "regex delimiter" do
+      assert ["1", "2", "3"] == convert_as("1,2;3", :list, delimiter: ~r/[,;]/)
+    end
+
+    test "binary pattern delimiter" do
+      assert ["1", "2", "3"] == convert_as("1,2;3", :list, delimiter: :binary.compile_pattern([",", ";"]))
+    end
+
+    test "invalid delimiter" do
+      assert_config_error("invalid `delimiter` value", "1,2;3", :list, delimiter: nil)
+    end
+
+    test "parts: 2" do
+      assert ["1", "2,3"] == convert_as("1,2,3", :list, parts: 2)
+    end
+
+    test "parts: :infinity" do
+      assert ["1", "2", "3"] == convert_as("1,2,3", :list, parts: :infinity)
+    end
+
+    test "invalid parts" do
+      assert_config_error("invalid `parts` value", "1,2,3", :list, parts: -1)
+    end
+
+    test "trim: true" do
+      assert ["1", "3"] == convert_as("1,,3", :list, trim: true)
+    end
+
+    test "trim: false" do
+      assert ["1", "", "3"] == convert_as("1,,3", :list, trim: false)
+    end
+
+    test "invalid trim" do
+      assert_config_error("invalid `trim` value", "1,,3", :list, trim: :invalid)
+    end
+
+    @delimiter_re ~r/1(?<a>2)3(?<b>4)/
+
+    test "on: :all_names" do
+      assert ["1", "3", ""] == convert_as("1234", :list, delimiter: @delimiter_re, on: :all_names)
+    end
+
+    test "on: named capture" do
+      assert ["1", "34"] == convert_as("1234", :list, delimiter: @delimiter_re, on: ["a"])
+    end
+
+    test "invalid on" do
+      assert_config_error("invalid `on` value", "1234", :list, delimiter: @delimiter_re, on: nil)
+    end
+
+    test "include_captures: true" do
+      assert ["1", "2", "3", "4", ""] ==
+               convert_as("1234", :list, delimiter: @delimiter_re, include_captures: true, on: :all_names)
+    end
+
+    test "include_captures: false" do
+      assert ["1", "3", ""] ==
+               convert_as("1234", :list, delimiter: @delimiter_re, on: :all_names, include_captures: false)
+    end
+
+    test "invalid include_captures" do
+      assert_config_error("invalid `include_captures` value", "1234", :list,
+        on: :all_names,
+        delimiter: @delimiter_re,
+        include_captures: nil
+      )
+    end
+  end
+
   describe "conversion: url_base64" do
     setup do
       data = File.read!(pems("example.org"))

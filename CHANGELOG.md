@@ -1,5 +1,22 @@
 # Enviable Changelog
 
+## 1.4.0 / 2025-02-11
+
+- Added `list` conversion for delimiter-separated lists. This supports all
+  options of `String.split/3`.
+
+- Added `*_env_as_TYPE/2` functions for all encoded conversions (`base16`,
+  `base32`, `hex32`, `base64`, `url_base64`, and `list`).
+
+- Internal:
+
+  - Added an internal config module to split the configuration from the
+    conversion code for improved readability.
+
+  - Updated doc names to how I now structure my projects.
+
+  - Add excoveralls for coverage.
+
 ## 1.3.0 / 2025-01-16
 
 - Added explicit functions for retrieval and conversion of primitives to assist
