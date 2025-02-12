@@ -8,8 +8,8 @@ variables easier when configuring Elixir projects. It is designed to work
 configuration environment loaders like [Dotenvy][Dotenvy] and provides robust
 value conversion like [jetenv][jetenv].
 
-Enviable 1.3 adds explicit functions for retrieval and conversion of primitives
-and soft-deprecates `*_env_integer/2` and `*_env_boolean/2`.
+Enviable 1.4 adds explicit functions for retrieval and conversion of encoded
+values and adds a new encoded value, `list`, for delimited lists.
 
 ## Usage
 

@@ -4,7 +4,7 @@ I value contributions to Enviable--bug reports, discussions, feature requests,
 and code contributions. New features should be proposed and discussed in an
 [issue][issues].
 
-Before contributing patches, please read the [Licence](./Licence.md).
+Before contributing patches, please read the [Licence](./LICENCE.md).
 
 Enviable is governed under the [Contributor Covenant Code of Conduct][cccoc].
 
@@ -62,7 +62,7 @@ required metadata trailers are:
   shorthand form (`feat!(scope)`) or `BREAKING CHANGE`.
 
 - `Signed-off-by`: this is required for all developers except me, as outlined in
-  the [Licence](./Licence.md#developer-certificate-of-origin).
+  the [Licence](./LICENCE.md#developer-certificate-of-origin).
 
 - `Fixes` or `Resolves`: If a change fixes one or more open [issues][issues],
   that issue must be included in the `Fixes` or `Resolves` trailer. Multiple
@@ -78,7 +78,7 @@ required metadata trailers are:
 
 Austin Ziegler created Enviable.
 
-[cccoc]: ./Code-of-Conduct.md
+[cccoc]: ./CODE_OF_CONDUCT.md
 [conventional]: https://www.conventionalcommits.org/en/v1.0.0/
 [credo]: https://github.com/rrrene/credo
 [styler]: https://github.com/adobe/styler

@@ -7,7 +7,7 @@ defmodule EnviableTest do
 
   setup do
     System.delete_env(@test_var)
-    for v <- ~w[FLAG FLOAT JSON LOG_LEVEL NAME PEM PORT TERM UNSET], do: System.delete_env(v)
+    for v <- ~w[FLAG FLOAT JSON LIST LOG_LEVEL NAME PEM PORT TERM UNSET], do: System.delete_env(v)
     :ok
   end
 

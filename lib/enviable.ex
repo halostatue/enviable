@@ -82,20 +82,22 @@ defmodule Enviable do
 
   Supported encoded conversions are:
 
-  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`)
-  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`)
-  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`)
-  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`)
+  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `get_env_as_base16/2`)
+  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `get_env_as_base32/2`)
+  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
+    `get_env_as_base64/2`, `get_env_as_url_base64/2`)
+  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `get_env_as_hex32/2`)
+  - `:list` (`t:Enviable.Conversion.encoded_list/0`, `get_env_as_list/2`)
 
   See `Enviable.Conversion` for supported type conversions and options.
 
   ### Value Conversion and Default Values
 
   Value conversion will be applied only to values contained in the requested environment
-  variable. Default values are used only when the environment variable is unset. In this
-  way, there is a meaningful difference between an unset environment variable (where
-  `System.get_env/1`  will return `nil`) and an empty environment variable (where
-  `System.get_env/1` returns `""`).
+  variable. Default values are used only when the environment variable is unset. There is
+  a meaningful difference between an unset environment variable (where `System.get_env/1`
+  will return `nil`) and an empty environment variable (where `System.get_env/1` returns
+  `""`).
 
   ```console
   $ FOO= elixir -e 'IO.inspect([foo: System.get_env("FOO"), bar: System.get_env("BAR")])'
@@ -144,6 +146,18 @@ defmodule Enviable do
   "RED"
   iex> Enviable.get_env_as("NAME", {:base16, :atom}, case: :lower, downcase: true)
   :red
+
+  iex> Enviable.put_env("LIST", "1,2,3")
+  iex> Enviable.get_env_as("LIST", :list)
+  ["1", "2", "3"]
+  iex> Enviable.get_env_as("LIST", {:list, :integer})
+  [1, 2, 3]
+
+  iex> Enviable.put_env("LIST", "1;2;3")
+  iex> Enviable.get_env_as("LIST", :list, delimiter: ";")
+  ["1", "2", "3"]
+  iex> Enviable.get_env_as("LIST", {:list, :integer}, delimiter: ";")
+  [1, 2, 3]
   ```
   """
   @doc since: "1.1.0"
@@ -811,6 +825,307 @@ defmodule Enviable do
   def get_env_as_elixir(varname), do: get_env_as(varname, :elixir, [])
 
   @doc """
+  Returns the value of an environment variable decoded as a base 16 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode16("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.get_env_as_base16("NAME", case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_base16("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_base16(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+        ]) :: nil | term()
+  def get_env_as_base16(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base16, opts}
+        {type, opts} -> {{:base16, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
+    is `false` (the opposite of `Base.decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.get_env_as_base32("NAME", case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_base32("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_base32(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: nil | term()
+  def get_env_as_base32(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base32, opts}
+        {type, opts} -> {{:base32, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
+    is `false` (the opposite of `Base.hex_decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.hex_encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.get_env_as_hex32("NAME", case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_hex32("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.get_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_hex32(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: nil | term()
+  def get_env_as_hex32(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:hex32, opts}
+        {type, opts} -> {{:hex32, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.get_env_as_base64("NAME", padding: false)
+  "RED"
+  iex> Enviable.get_env_as_base64("NAME", as: :string, padding: true)
+  "RED"
+  iex> Enviable.get_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_base64(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: nil | term()
+  def get_env_as_base64(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base64, opts}
+        {type, opts} -> {{:base64, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.url_encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.get_env_as_url_base64("NAME", padding: false)
+  "RED"
+  iex> Enviable.get_env_as_url_base64("NAME", as: :string, padding: true)
+  "RED"
+  iex> Enviable.get_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_url_base64(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: nil | term()
+  def get_env_as_url_base64(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:url_base64, opts}
+        {type, opts} -> {{:url_base64, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable parsed as a delimiter-separated list.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Each entry must conform to the permitted
+    type provided in `:as`.
+  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
+    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
+    a regular expression). Defaults to `","`.
+  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
+    `:infinity`). Passed to `String.split/3`.
+  - `:trim`: A boolean option whether empty entries should be omitted.
+
+  When the pattern is a regular expression, `Regex.split/3` options are also supported:
+
+  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
+    :first which means captures inside the regex do not affect the splitting process.
+  - `:include_captures`: when true, includes in the result the matches of the regular
+    expression. The matches are not counted towards the maximum number of parts if
+    combined with the `:parts` option. Defaults to `false`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.put_env("LIST", "1,2,3")
+  iex> Enviable.get_env_as_list("LIST")
+  ["1", "2", "3"]
+  iex> Enviable.get_env_as_list("LIST", as: :integer)
+  [1, 2, 3]
+
+  iex> Enviable.put_env("LIST", "1;2;3")
+  iex> Enviable.get_env_as_list("LIST", delimiter: ";")
+  ["1", "2", "3"]
+  iex> Enviable.get_env_as_list("LIST", as: :integer, delimiter: ";")
+  [1, 2, 3]
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec get_env_as_list(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
+          | {:parts, pos_integer() | :infinity}
+          | {:trim, boolean()}
+          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
+          | {:include_captures, boolean()}
+        ]) :: nil | list()
+  def get_env_as_list(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:list, opts}
+        {type, opts} -> {{:list, type}, opts}
+      end
+
+    get_env_as(varname, type, opts)
+  end
+
+  @doc """
   Returns the value of an environment variable converted to the target `type` as `{:ok,
   term()}` or `:error` if the variable is unset.
 
@@ -833,10 +1148,12 @@ defmodule Enviable do
 
   Supported encoded conversions are:
 
-  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`)
-  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`)
-  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`)
-  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`)
+  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `fetch_env_as_base16/2`)
+  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `fetch_env_as_base32/2`)
+  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
+    `fetch_env_as_base64/2`, `fetch_env_as_url_base64/2`)
+  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `fetch_env_as_hex32/2`)
+  - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list/2`)
 
   See `Enviable.Conversion` for supported type conversions and options, but note that any
   `default` values are ignored for `fetch_env_as/3` and related `fetch_env_as_*`
@@ -1331,6 +1648,307 @@ defmodule Enviable do
   def fetch_env_as_elixir(varname), do: fetch_env_as(varname, :elixir, [])
 
   @doc """
+  Returns the value of an environment variable decoded as a base 16 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode16("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base16("NAME", case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base16("NAME", as: :string, case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
+  {:ok, :red}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base16(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+        ]) :: :error | {:ok, term()}
+  def fetch_env_as_base16(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base16, opts}
+        {type, opts} -> {{:base16, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
+    is `false` (the opposite of `Base.decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base32("NAME", case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base32("NAME", as: :string, case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
+  {:ok, :red}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base32(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: :error | {:ok, term()}
+  def fetch_env_as_base32(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base32, opts}
+        {type, opts} -> {{:base32, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
+    is `false` (the opposite of `Base.hex_decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.hex_encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_hex32("NAME", case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_hex32("NAME", as: :string, case: :lower)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
+  {:ok, :red}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_hex32(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: :error | {:ok, term()}
+  def fetch_env_as_hex32(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:hex32, opts}
+        {type, opts} -> {{:hex32, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base64("NAME", padding: false)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base64("NAME", as: :string, padding: true)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
+  {:ok, :red}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base64(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: :error | {:ok, term()}
+  def fetch_env_as_base64(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base64, opts}
+        {type, opts} -> {{:base64, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.url_encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_url_base64("NAME", padding: false)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_url_base64("NAME", as: :string, padding: true)
+  {:ok, "RED"}
+  iex> Enviable.fetch_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
+  {:ok, :red}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_url_base64(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: :error | {:ok, term()}
+  def fetch_env_as_url_base64(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:url_base64, opts}
+        {type, opts} -> {{:url_base64, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable parsed as a delimiter-separated list.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Each entry must conform to the permitted
+    type provided in `:as`.
+  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
+    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
+    a regular expression). Defaults to `","`.
+  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
+    `:infinity`). Passed to `String.split/3`.
+  - `:trim`: A boolean option whether empty entries should be omitted.
+
+  When the pattern is a regular expression, `Regex.split/3` options are also supported:
+
+  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
+    :first which means captures inside the regex do not affect the splitting process.
+  - `:include_captures`: when true, includes in the result the matches of the regular
+    expression. The matches are not counted towards the maximum number of parts if
+    combined with the `:parts` option. Defaults to `false`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.put_env("LIST", "1,2,3")
+  iex> Enviable.fetch_env_as_list("LIST")
+  {:ok, ["1", "2", "3"]}
+  iex> Enviable.fetch_env_as_list("LIST", as: :integer)
+  {:ok, [1, 2, 3]}
+
+  iex> Enviable.put_env("LIST", "1;2;3")
+  iex> Enviable.fetch_env_as_list("LIST", delimiter: ";")
+  {:ok, ["1", "2", "3"]}
+  iex> Enviable.fetch_env_as_list("LIST", as: :integer, delimiter: ";")
+  {:ok, [1, 2, 3]}
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_list(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
+          | {:parts, pos_integer() | :infinity}
+          | {:trim, boolean()}
+          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
+          | {:include_captures, boolean()}
+        ]) :: :error | {:ok, list()}
+  def fetch_env_as_list(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:list, opts}
+        {type, opts} -> {{:list, type}, opts}
+      end
+
+    fetch_env_as(varname, type, opts)
+  end
+
+  @doc """
   Returns the value of an environment variable converted to the target `type` or raises an
   exception if the variable is unset.
 
@@ -1355,10 +1973,12 @@ defmodule Enviable do
 
   Supported encoded conversions are:
 
-  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`)
-  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`)
-  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`)
-  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`)
+  - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `fetch_env_as_base16!/2`)
+  - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `fetch_env_as_base32!/2`)
+  - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
+    `fetch_env_as_base64!/2`, `fetch_env_as_url_base64!/2`)
+  - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `fetch_env_as_hex32!/2`)
+  - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list!/2`)
 
   See `Enviable.Conversion` for supported type conversions and options, but note that any
   documented `default` values are ignored for `fetch_env_as!/3` and related
@@ -1840,6 +2460,307 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_elixir!(String.t()) :: term()
   def fetch_env_as_elixir!(varname), do: fetch_env_as!(varname, :elixir, [])
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 16 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode16("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base16!("NAME", case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_base16!("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_base16!("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base16!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+        ]) :: term()
+  def fetch_env_as_base16!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base16, opts}
+        {type, opts} -> {{:base16, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
+    is `false` (the opposite of `Base.decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base32!("NAME", case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_base32!("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_base32!("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base32!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: term()
+  def fetch_env_as_base32!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base32, opts}
+        {type, opts} -> {{:base32, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
+    `:lower`, or `:mixed`.
+  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
+    is `false` (the opposite of `Base.hex_decode32/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.hex_encode32("RED", case: :lower)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_hex32!("NAME", case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_hex32!("NAME", as: :string, case: :lower)
+  "RED"
+  iex> Enviable.fetch_env_as_hex32!("NAME", as: :atom, case: :lower, downcase: true)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_hex32!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: term()
+  def fetch_env_as_hex32!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:hex32, opts}
+        {type, opts} -> {{:hex32, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_base64!("NAME", padding: false)
+  "RED"
+  iex> Enviable.fetch_env_as_base64!("NAME", as: :string, padding: true)
+  "RED"
+  iex> Enviable.fetch_env_as_base64!("NAME", as: :atom, downcase: true, padding: false)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_base64!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: term()
+  def fetch_env_as_base64!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:base64, opts}
+        {type, opts} -> {{:base64, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Must conform to the permitted type provided
+    in `:as`.
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
+    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
+    is `false` (the opposite of `Base.decode64/2`).
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> red = Base.url_encode64("RED", padding: true)
+  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.fetch_env_as_url_base64!("NAME", padding: false)
+  "RED"
+  iex> Enviable.fetch_env_as_url_base64!("NAME", as: :string, padding: true)
+  "RED"
+  iex> Enviable.fetch_env_as_url_base64!("NAME", as: :atom, downcase: true, padding: false)
+  :red
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_url_base64!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:case, :upper | :lower | :mixed}
+          | {:padding, boolean()}
+        ]) :: term()
+  def fetch_env_as_url_base64!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:url_base64, opts}
+        {type, opts} -> {{:url_base64, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
+
+  @doc """
+  Returns the value of an environment variable parsed as a delimiter-separated list.
+
+  ## Options
+
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
+    Must be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primit/0` value.
+  - `:default`: The default value to be used. Each entry must conform to the permitted
+    type provided in `:as`.
+  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
+    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
+    a regular expression). Defaults to `","`.
+  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
+    `:infinity`). Passed to `String.split/3`.
+  - `:trim`: A boolean option whether empty entries should be omitted.
+
+  When the pattern is a regular expression, `Regex.split/3` options are also supported:
+
+  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
+    :first which means captures inside the regex do not affect the splitting process.
+  - `:include_captures`: when true, includes in the result the matches of the regular
+    expression. The matches are not counted towards the maximum number of parts if
+    combined with the `:parts` option. Defaults to `false`.
+
+  If `:as` is provided, the options for that type may also be provided.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.put_env("LIST", "1,2,3")
+  iex> Enviable.fetch_env_as_list!("LIST")
+  ["1", "2", "3"]
+  iex> Enviable.fetch_env_as_list!("LIST", as: :integer)
+  [1, 2, 3]
+
+  iex> Enviable.put_env("LIST", "1;2;3")
+  iex> Enviable.fetch_env_as_list!("LIST", delimiter: ";")
+  ["1", "2", "3"]
+  iex> Enviable.fetch_env_as_list!("LIST", as: :integer, delimiter: ";")
+  [1, 2, 3]
+  ```
+  """
+  @doc since: "1.4.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_list!(String.t(), [
+          {:default, term()}
+          | {:as, :string | Conversion.primitive()}
+          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
+          | {:parts, pos_integer() | :infinity}
+          | {:trim, boolean()}
+          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
+          | {:include_captures, boolean()}
+        ]) :: list()
+  def fetch_env_as_list!(varname, opts \\ []) do
+    {type, opts} =
+      case Keyword.pop(opts, :as) do
+        {nil, opts} -> {:list, opts}
+        {type, opts} -> {{:list, type}, opts}
+      end
+
+    fetch_env_as!(varname, type, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:boolean/0` value. See

@@ -3,6 +3,8 @@ defmodule Enviable.Conversion do
   All supported conversions and options for those conversions.
   """
 
+  alias Enviable.Conversion.Config, as: ECC
+
   atom_exhaustion =
     "[Preventing atom exhaustion](https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion)"
 
@@ -366,8 +368,34 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.1.0"
   @type encoded_base64 :: :base64 | :url_base64 | {:base64 | :url_base64, :string | primitive}
 
+  @typedoc """
+  Decodes the value from a string as a delimiter-separated list. If a secondary type is
+  provided, a further conversion pass is made using the secondary type.
+
+  ### Options
+
+  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
+    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
+    a regular expression). Defaults to `","`.
+  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
+    `:infinity`). Passed to `String.split/3`.
+  - `:trim`: A boolean option whether empty entries should be omitted.
+
+  When the pattern is a regular expression, `Regex.split/3` options are also supported:
+
+  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
+    :first which means captures inside the regex do not affect the splitting process.
+  - `:include_captures`: when true, includes in the result the matches of the regular
+    expression. The matches are not counted towards the maximum number of parts if
+    combined with the `:parts` option. Defaults to `false`.
+
+  If a secondary type is provided, the options for that type may also be provided.
+  """
+  @typedoc since: "1.4.0"
+  @type encoded_list :: :list | {:list, :string | primitive}
+
   @typedoc since: "1.1.0"
-  @type encoded :: encoded_base16 | encoded_base32 | encoded_hex32 | encoded_base64
+  @type encoded :: encoded_base16 | encoded_base32 | encoded_hex32 | encoded_base64 | encoded_list
 
   @typedoc since: "1.1.0"
   @type conversion :: primitive | encoded
@@ -387,6 +415,13 @@ defmodule Enviable.Conversion do
     convert_as(value, varname, encoded, options)
   end
 
+  def convert_as(value, varname, {:list, type}, options) do
+    value
+    |> convert_as(varname, :list, options)
+    |> Enum.with_index()
+    |> Enum.map(fn {value, index} -> convert_as(value, "#{varname}[#{index}]", type, options) end)
+  end
+
   def convert_as(value, varname, {encoded, type}, options) do
     value
     |> convert_as(varname, encoded, options)
@@ -394,7 +429,7 @@ defmodule Enviable.Conversion do
   end
 
   def convert_as(value, varname, type, options) do
-    case config_for(type, options) do
+    case ECC.parse(type, options) do
       {:ok, config} ->
         value =
           if downcase = config[:downcase], do: String.downcase(value, downcase), else: value
@@ -552,280 +587,9 @@ defmodule Enviable.Conversion do
     Base.url_decode64(value, opts)
   end
 
-  @spec config_for(conversion, keyword) :: {:ok, map()} | {:error, String.t()}
-  defp config_for(type, opts) when type in [:atom, :safe_atom] do
-    with {:ok, downcase} <- opt_downcase(opts),
-         {:ok, allowed} <- atom_allowed(opts),
-         {:ok, default} <- atom_default(opts, allowed) do
-      {:ok, %{downcase: downcase, default: default, allowed: allowed}}
-    end
-  end
-
-  defp config_for(:boolean, opts) do
-    with {:ok, {truthy, falsy}} <- boolean_matchers(opts),
-         {:ok, downcase} <- opt_downcase(opts),
-         {:ok, default} <- boolean_default(opts) do
-      {:ok, %{default: default, downcase: downcase, falsy: falsy, truthy: truthy}}
-    end
-  end
-
-  defp config_for(:charlist, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, %{default: nil}}
-      {:ok, value} when is_binary(value) -> {:ok, %{default: String.to_charlist(value)}}
-      {:ok, value} when is_list(value) -> {:ok, %{default: value}}
-      _ -> {:error, "non-charlist `default` value"}
-    end
-  end
-
-  defp config_for(:float, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, %{default: nil}}
-
-      {:ok, value} when is_float(value) ->
-        {:ok, %{default: value}}
-
-      {:ok, value} when is_integer(value) ->
-        {:ok, %{default: value + 0.0}}
-
-      {:ok, value} when is_binary(value) ->
-        case Float.parse(value) do
-          {float, ""} -> {:ok, %{default: float}}
-          _ -> {:error, "non-float `default` value"}
-        end
-
-      _ ->
-        {:error, "non-float `default` value"}
-    end
-  end
-
-  defp config_for(:log_level, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, %{default: nil}}
-
-      {:ok, value} when is_atom(value) and value in @log_levels ->
-        {:ok, %{default: value}}
-
-      {:ok, value} when is_binary(value) ->
-        if level = @log_levels_map[value] do
-          {:ok, %{default: level}}
-        else
-          {:error, "invalid `default` value #{value}"}
-        end
-
-      {:ok, value} ->
-        {:error, "invalid `default` value #{inspect(value)}"}
-    end
-  end
-
-  defp config_for(:integer, opts) do
-    with {:ok, base} <- integer_base(opts),
-         {:ok, default} <- integer_default(opts, base) do
-      {:ok, %{default: default, base: base}}
-    end
-  end
-
-  defp config_for(:json, opts) do
-    with {:ok, default} <- json_default(opts),
-         {:ok, engine} <- json_engine(opts) do
-      {:ok, %{default: default, engine: engine}}
-    end
-  end
-
-  defp config_for(type, opts) when type in [:module, :safe_module] do
-    with {:ok, allowed} <- module_allowed(opts),
-         {:ok, default} <- atom_default(opts, allowed) do
-      {:ok, %{default: default, allowed: allowed}}
-    end
-  end
-
-  defp config_for(:pem, opts) do
-    case Keyword.fetch(opts, :filter) do
-      :error -> {:ok, %{filter: true}}
-      {:ok, value} when value in [:cert, :key, false, true] -> {:ok, %{filter: value}}
-      _ -> {:error, "invalid `filter` value"}
-    end
-  end
-
-  defp config_for(type, _opts) when type in [:erlang, :elixir], do: {:ok, %{}}
-
-  defp config_for(:base16, opts) do
-    case encoded_case(opts) do
-      {:ok, result} -> {:ok, %{decode_opts: result}}
-      error -> error
-    end
-  end
-
-  defp config_for(base32, opts) when base32 in [:base32, :hex32] do
-    with {:ok, case_config} <- encoded_case(opts),
-         {:ok, padding_config} <- encoded_padding(opts) do
-      {:ok, %{decode_opts: Keyword.merge(case_config, padding_config)}}
-    end
-  end
-
-  defp config_for(base64, opts) when base64 in [:base64, :url_base64] do
-    with {:ok, whitespace_config} <- encoded_whitespace(opts),
-         {:ok, padding_config} <- encoded_padding(opts) do
-      {:ok, %{decode_opts: Keyword.merge(whitespace_config, padding_config)}}
-    end
-  end
-
-  defp encoded_case(opts) do
-    case Keyword.get(opts, :case, :upper) do
-      value when value in [:upper, :lower, :mixed] -> {:ok, [case: value]}
-      _ -> {:error, "invalid `case` value"}
-    end
-  end
-
-  defp encoded_padding(opts) do
-    case Keyword.get(opts, :padding, false) do
-      value when is_boolean(value) -> {:ok, [padding: value]}
-      _ -> {:error, "invalid `padding` value"}
-    end
-  end
-
-  defp encoded_whitespace(opts) do
-    case Keyword.get(opts, :ignore_whitespace, true) do
-      true -> {:ok, ignore: :whitespace}
-      false -> {:ok, []}
-      _ -> {:error, "invalid `ignore_whitespace` value"}
-    end
-  end
-
-  defp atom_allowed(opts) do
-    case Keyword.fetch(opts, :allowed) do
-      :error ->
-        {:ok, nil}
-
-      {:ok, []} ->
-        {:error, "`allowed` cannot be empty"}
-
-      {:ok, [_ | _] = allowed} ->
-        if Enum.all?(allowed, &is_atom/1) do
-          {:ok, Map.new(allowed, &{Atom.to_string(&1), &1})}
-        else
-          {:error, "`allowed` must be an atom list"}
-        end
-
-      _ ->
-        {:error, "`allowed` must be an atom list"}
-    end
-  end
-
-  defp atom_default(opts, allowed) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, nil}
-      {:ok, value} -> atom_default_allowed(value, allowed)
-    end
-  end
-
-  defp atom_default_allowed(value, nil) when is_atom(value), do: {:ok, value}
-
-  defp atom_default_allowed(value, allowed) when is_atom(value) and is_map(allowed) do
-    if value in Map.values(allowed) do
-      {:ok, value}
-    else
-      {:error, "`default` value '#{value}' not present in `allowed`"}
-    end
-  end
-
-  defp atom_default_allowed(value, allowed) when is_binary(value) and is_map(allowed) do
-    if atom = allowed[value] do
-      {:ok, atom}
-    else
-      {:error, "`default` value '#{value}' not present in `allowed`"}
-    end
-  end
-
-  defp atom_default_allowed(_value, _allowed), do: {:error, "non-atom `default` value"}
-
-  defp boolean_default(opts) do
-    case Keyword.get(opts, :default, false) do
-      value when is_boolean(value) -> {:ok, value}
-      _ -> {:error, "non-boolean `default` value"}
-    end
-  end
-
-  defp boolean_matchers(opts) do
-    case {Keyword.get(opts, :truthy), Keyword.get(opts, :falsy)} do
-      {nil, nil} -> {:ok, {~w[1 true], nil}}
-      {[_ | _] = truthy, nil} -> {:ok, {truthy, nil}}
-      {nil, [_ | _] = falsy} -> {:ok, {nil, falsy}}
-      _ -> {:error, "`truthy` and `falsy` options both provided"}
-    end
-  end
-
-  defp integer_base(opts) do
-    case Keyword.get(opts, :base, 10) do
-      base when is_integer(base) and base >= 2 and base <= 36 -> {:ok, base}
-      _ -> {:error, "invalid `base` value (must be an integer 2..36)"}
-    end
-  end
-
-  defp integer_default(opts, base) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, nil}
-
-      {:ok, value} when is_integer(value) ->
-        {:ok, value}
-
-      {:ok, value} when is_binary(value) ->
-        case Integer.parse(value, base) do
-          {integer, ""} -> {:ok, integer}
-          _ -> {:error, "non-integer `default` value for base #{base}"}
-        end
-
-      _ ->
-        {:error, "non-integer `default` value"}
-    end
-  end
-
-  defp json_default(opts) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, nil}
-      {:ok, value} when is_json(value) -> {:ok, value}
-      _ -> {:error, "non-JSON `default` value"}
-    end
-  end
-
-  if Code.ensure_loaded?(:json) do
-    @default_engine :json
-  else
-    @default_engine Jason
-  end
-
-  defp json_engine(opts) do
-    case Keyword.fetch(opts, :engine) do
-      :error -> {:ok, Application.get_env(:enviable, :json, @default_engine)}
-      {:ok, engine} when is_atom(engine) or is_function(engine, 1) -> {:ok, engine}
-      _ -> {:error, "invalid `engine` value"}
-    end
-  end
-
-  defp module_allowed(opts) do
-    case atom_allowed(opts) do
-      {:ok, allowed} -> {:ok, module_lookup(allowed)}
-      error -> error
-    end
-  end
-
-  defp module_lookup(nil), do: nil
-
-  defp module_lookup(allowed) do
-    allowed
-    |> Enum.flat_map(fn {key, mod} -> [{key, mod}, {String.replace_prefix(key, "Elixir.", ""), mod}] end)
-    |> Map.new()
-  end
-
-  defp opt_downcase(opts) do
-    case Keyword.get(opts, :downcase, false) do
-      true -> {:ok, :default}
-      atom when atom in [false, :default, :ascii, :greek, :turkic] -> {:ok, atom}
-      _ -> {:error, "invalid `downcase` value"}
-    end
+  defp convert_to(:list, value, %{decode_opts: opts}) do
+    {delimiter, opts} = Keyword.pop(opts, :delimiter)
+    {:ok, String.split(value, delimiter, opts)}
   end
 
   defp decode_json(value, engine) when is_function(engine, 1) do
