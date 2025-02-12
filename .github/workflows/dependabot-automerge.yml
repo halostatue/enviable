@@ -3,6 +3,8 @@ name: Dependabot auto-merge
 on:
   pull_request:
 
+permissions: {}
+
 jobs:
   dependabot-automerge:
     runs-on: ubuntu-latest
