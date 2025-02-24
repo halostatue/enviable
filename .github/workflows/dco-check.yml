@@ -18,7 +18,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: KineticCafe/actions-dco@a7f6488b8cadf38f423990df5fb9305dc33835ea # v1.3.2
+      - uses: KineticCafe/actions-dco@efa6164fb3608ab18f9b31d16d809ce177541ba4 # v1.3.3
         with:
           exempt-authors: |
             austin@zieglers.ca
