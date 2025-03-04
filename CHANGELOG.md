@@ -1,5 +1,27 @@
 # Enviable Changelog
 
+## 1.5.0 / 2025-03-04
+
+- Fixed a bug with `list` conversion for `get_env_as_list` and `get_env_as`
+  where support for a `:default` value was not included.
+
+- Fixed a bug with `:downcase` conversions and nil values.
+
+- Added a compile-time configuration option to change the default boolean
+  `:downcase` option. The default value is currently `false` (do not downcase).
+  The next major version of Enviable will change this to `:default`, as it
+  should not matter whether the matched value is `true`, `TRUE`, or `True` for
+  boolean tests.
+
+- Added `:upcase` option to `atom` and `safe_atom` conversions.
+
+- Fixed `:json_engine` configuration so that it is properly compile-time and
+  referenced. The JSON parsing code was looking this up at runtime under the
+  wrong key.
+
+- Added support for `{m, f, a}` specification for `:json_engine` configuration
+  or the `:engine` parameter for JSON conversion.
+
 ## 1.4.0 / 2025-02-11
 
 - Added `list` conversion for delimiter-separated lists. This supports all

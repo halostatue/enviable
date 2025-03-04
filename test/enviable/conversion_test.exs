@@ -15,6 +15,13 @@ defmodule Enviable.ConversionTest do
 
   doctest Enviable.Conversion
 
+  defmodule JsonModule do
+    @moduledoc false
+    def decode_json(v, opts \\ [])
+    def decode_json("raise", _opts), do: raise("raise")
+    def decode_json(v, opts), do: Jason.decode(v, opts)
+  end
+
   setup do
     System.delete_env("PORT")
     System.delete_env("COLOR")
@@ -37,6 +44,11 @@ defmodule Enviable.ConversionTest do
     test "value with downcase" do
       assert :default == convert_as("DEFAULT", :atom, downcase: true)
       assert :DEFAULT == convert_as("DEFAULT", :atom, downcase: false)
+    end
+
+    test "value with upcase" do
+      assert :default == convert_as("default", :atom, upcase: false)
+      assert :DEFAULT == convert_as("default", :atom, upcase: true)
     end
 
     test "value with allowed" do
@@ -81,6 +93,24 @@ defmodule Enviable.ConversionTest do
     test "invalid allowed" do
       assert_config_error("`allowed` must be an atom list", "on", :atom, allowed: 3)
       assert_config_error("`allowed` cannot be empty", "on", :atom, allowed: [])
+    end
+
+    test "invalid downcase" do
+      assert_config_error("invalid `downcase` value", "on", :atom, downcase: 3)
+    end
+
+    test "invalid upcase" do
+      assert_config_error("invalid `upcase` value", "on", :atom, upcase: 3)
+    end
+
+    test "both upcase and downcase provided" do
+      assert_config_error(
+        "`downcase` and `upcase` options both provided",
+        "on",
+        :atom,
+        upcase: true,
+        downcase: true
+      )
     end
   end
 
@@ -328,12 +358,25 @@ defmodule Enviable.ConversionTest do
       assert %{} == convert_as("{}", :json, engine: Jason)
       assert [] == convert_as("[]", :json, engine: Jason)
       assert true == convert_as("true", :json, engine: Jason)
+      assert nil == convert_as("null", :json, engine: Jason)
+      assert_conversion_error("xyz", :json, engine: Jason)
     end
 
     test "with function engine" do
       assert_conversion_error("3.1", :json, engine: fn _ -> :error end)
       assert_conversion_error("3.1", :json, engine: fn _ -> raise "foo" end)
-      assert 3.1 === convert_as("3.1", :json)
+      assert 3.1 === convert_as("3.1", :json, engine: fn v -> Jason.decode(v) end)
+    end
+
+    test "with mfa engine" do
+      assert 3.1 === convert_as("3.1", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert 3 === convert_as("3", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert "3" == convert_as("\"3\"", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert %{} == convert_as("{}", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert [] == convert_as("[]", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert true == convert_as("true", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert_conversion_error("xyz", :json, engine: {JsonModule, :decode_json, [[]]})
+      assert_conversion_error("raise", :json, engine: {JsonModule, :decode_json, [[]]})
     end
   end
 
@@ -736,6 +779,14 @@ defmodule Enviable.ConversionTest do
   describe "conversion: list" do
     test "value nil" do
       assert nil == convert_as(nil, :list)
+    end
+
+    test "value nil with default" do
+      assert [1, 2, 3] == convert_as(nil, :list, default: [1, 2, 3])
+    end
+
+    test "invalid default" do
+      assert_config_error("non-list `default` value", "1,2;3", :list, default: 3)
     end
 
     test "defaults" do

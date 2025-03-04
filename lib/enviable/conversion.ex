@@ -17,6 +17,7 @@ defmodule Enviable.Conversion do
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
   - `:downcase`: See `t:opt_downcase/0`.
+  - `:upcase`: See `t:opt_upcase/0`.
   """
 
   @typedoc """
@@ -55,12 +56,33 @@ defmodule Enviable.Conversion do
 
   - `:default`: The default value, which must be `true` or `false`. The default value is
     `false`.
-  - `:downcase`: See `t:opt_downcase/0`.
+  - `:downcase`: This option controls a type conversion's case folding mode passed to
+    `String.downcase/2`. The default is `false`. `true` has the same meaning as
+    `:default`.
+
+    The default `:downcase` value for boolean conversions can be changed at compile time
+    through application configuration:
+
+    ```elixir
+    config :enviable, :boolean_downcase, true
+    config :enviable, :boolean_downcase, :default
+    config :enviable, :boolean_downcase, :ascii
+    ```
+
+    > In the next major version of Enviable, the default `:downcase` value will be
+    > changing to `:default`.
+
   - `:truthy`, `:falsy`: Only one of `:truthy` or `:falsy` may be specified. It must be
     a list of `t:binary/0` values. If neither is specified, the default is `truthy: ~w[1
     true]`.
+
     - `:truthy`: if the value to convert is in this list, the result will be `true`
+
     - `:falsy`: if the value to convert is in this list, the result will be `false`
+
+  >
+  > In a future version of Enviable, the default value of `:downcase` for boolean
+  > conversions will change from `false` to `true`.
   """
   @typedoc since: "1.0.0"
   @type convert_boolean :: :boolean
@@ -117,20 +139,22 @@ defmodule Enviable.Conversion do
 
   - `:default`: The default value, which may be any valid JSON type.
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`) or an arity 1 function. If it produces `{:ok, json_value}` or an
-    expected JSON type result, it will be considered successful. Any other result will be
-    treated as failure.
+    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
+    a `t:mfa/0`, the variable value will be passed as the first parameter.
 
-  If the Erlang/OTP `m::json` module is available, or [json_polyfill][jp] is available,
-  it will be used as the default JSON engine. Otherwise, [Jason][jason] will be treated as
-  the default engine. This choice may be overridden with application configuration, as
-  this example shows using [Thoas][thoas].
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
+    considered successful. Any other result will be treated as failure.
 
-  ```elixir
-  import Config
+    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
+    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
+    the default engine. This choice may be overridden with application configuration, as
+    this example shows using [Thoas][thoas].
 
-  config :enviable, :json_engine, :thoas
-  ```
+    ```elixir
+    import Config
+
+    config :enviable, :json_engine, :thoas
+    ```
 
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
@@ -405,9 +429,22 @@ defmodule Enviable.Conversion do
   `String.downcase/2`.
 
   The default is `false`. `true` has the same meaning as `:default`.
+
+  This is mutually exclusive with `upcase`.
   """
   @typedoc since: "1.0.0"
   @type opt_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
+
+  @typedoc """
+  This option controls a type conversion's case folding mode passed to
+  `String.upcase/2`.
+
+  The default is `false`. `true` has the same meaning as `:default`.
+
+  This is mutually exclusive with `downcase`.
+  """
+  @typedoc since: "1.5.0"
+  @type opt_upcase :: {:upcase, true | false | :default | :ascii | :greek | :turkic}
 
   @spec convert_as(value :: nil | binary(), varname :: String.t(), conversion, keyword) :: nil | term()
   @doc false
@@ -431,8 +468,7 @@ defmodule Enviable.Conversion do
   def convert_as(value, varname, type, options) do
     case ECC.parse(type, options) do
       {:ok, config} ->
-        value =
-          if downcase = config[:downcase], do: String.downcase(value, downcase), else: value
+        value = casefold(value, config[:casefold])
 
         case convert_to(type, value, config) do
           {:ok, result} -> result
@@ -604,7 +640,19 @@ defmodule Enviable.Conversion do
     _ -> :error
   end
 
+  defp decode_json(value, {m, f, a}) do
+    apply(m, f, [value | a])
+  rescue
+    _ -> :error
+  end
+
   defp public_key_filter([{:PrivateKeyInfo, pk, :not_encrypted} | _]), do: {:PrivateKeyInfo, pk}
   defp public_key_filter([{:Certificate, ct, :not_encrypted} | rest]), do: [ct | public_key_filter(rest)]
   defp public_key_filter([]), do: []
+
+  defp casefold(nil, _config), do: nil
+  defp casefold(value, nil), do: value
+  defp casefold(value, {_foldtype, false}), do: value
+  defp casefold(value, {:upcase, type}), do: String.upcase(value, type)
+  defp casefold(value, {:downcase, type}), do: String.downcase(value, type)
 end

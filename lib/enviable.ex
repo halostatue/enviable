@@ -32,8 +32,43 @@ defmodule Enviable do
     ssl: get_env_as_boolean("SSL_ENABLED")
   ```
 
+  ### Configuration
+
+  Envible has two compile-time options.
+
+  - `:boolean_downcase`: Sets the default value for case-folding boolean conversions.
+    Can be set to `:default`, `:ascii`, `:greek`, or `:turkic`. The boolean value `true`
+    will be treated as `:default`.
+
+    ```elixir
+    config :enviable, :boolean_downcase, true
+    config :enviable, :boolean_downcase, :default
+    config :enviable, :boolean_downcase, :ascii
+    ```
+
+    If unspecified, defaults to `false`. The next major version of Enviable will change
+    this to `:default`.
+
+  - `:json_engine`: The default JSON engine to use for JSON conversions. This may be
+    provided as a `t:module/0` (which must export `decode/1`) or a `t:mfa/0` tuple. When
+    provided with a `t:mfa/0`, the variable value will be passed as the first parameter.
+
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
+    considered successful. Any other result will be treated as failure.
+
+    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
+    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
+    the default engine.
+
+    ```elixir
+    config :enviable, :json_engine, :thoas
+    config :enviable, :json_engine, {Jason, :decode, [[floats: :decimals]]}
+    ```
+
   [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+  [jason]: https://hexdocs.pm/jason/readme.html
   [jetenv]: https://hexdocs.pm/jetenv/readme.html
+  [jp]: https://hexdocs.pm/json_polyfill/readme.html
   """
 
   alias Enviable.Conversion
@@ -181,6 +216,7 @@ defmodule Enviable do
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
   - `:downcase`: See `t:Enviable.Conversion.opt_downcase/0`.
+  - `:upcase`: See `t:Enviable.Conversion.opt_upcase/0`.
 
   A shorthand for the `default` option may be provided as a `t:atom/0` value.
   """
@@ -308,6 +344,18 @@ defmodule Enviable do
 
   - `:downcase`: either `false` (the default), `true`, or the mode parameter for
     `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
+
+    The default `:downcase` value for boolean conversions can be changed at compile time
+    through application configuration:
+
+    ```elixir
+    config :enviable, :boolean_downcase, true
+    config :enviable, :boolean_downcase, :default
+    config :enviable, :boolean_downcase, :ascii
+    ```
+
+    > In the next major version of Enviable, the default `:downcase` value will be
+    > changing to `:default`.
 
   A shorthand value for the `default` option may be provided as a `t:boolean/0` value.
 
@@ -543,20 +591,22 @@ defmodule Enviable do
 
   - `:default`: The default value, which may be any valid JSON type.
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`) or an arity 1 function. If it produces `{:ok, json_value}` or an
-    expected JSON type result, it will be considered successful. Any other result will be
-    treated as failure.
+    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
+    a `t:mfa/0`, the variable value will be passed as the first parameter.
 
-  If the Erlang/OTP `m::json` module is available, or [json_polyfill][jp] is available,
-  it will be used as the default JSON engine. Otherwise, [Jason][jason] will be treated as
-  the default engine. This choice may be overridden with application configuration, as
-  this example shows using [Thoas][thoas].
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
+    considered successful. Any other result will be treated as failure.
 
-  ```elixir
-  import Config
+    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
+    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
+    the default engine. This choice may be overridden with application configuration, as
+    this example shows using [Thoas][thoas].
 
-  config :enviable, :json_engine, :thoas
-  ```
+    ```elixir
+    import Config
+
+    config :enviable, :json_engine, :thoas
+    ```
 
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
@@ -1219,6 +1269,7 @@ defmodule Enviable do
   - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
     a lookup table, if present. Any value not found will result in an exception.
   - `:downcase`: See `t:Enviable.Conversion.opt_downcase/0`.
+  - `:upcase`: See `t:Enviable.Conversion.opt_upcase/0`.
   """
 
   @doc """
@@ -1299,6 +1350,18 @@ defmodule Enviable do
 
   - `:downcase`: either `false` (the default), `true`, or the mode parameter for
     `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
+
+    The default `:downcase` value for boolean conversions can be changed at compile time
+    through application configuration:
+
+    ```elixir
+    config :enviable, :boolean_downcase, true
+    config :enviable, :boolean_downcase, :default
+    config :enviable, :boolean_downcase, :ascii
+    ```
+
+    > In the next major version of Enviable, the default `:downcase` value will be
+    > changing to `:default`.
 
   ### Examples
 
@@ -1428,20 +1491,22 @@ defmodule Enviable do
   ### Options
 
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`) or an arity 1 function. If it produces `{:ok, json_value}` or an
-    expected JSON type result, it will be considered successful. Any other result will be
-    treated as failure.
+    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
+    a `t:mfa/0`, the variable value will be passed as the first parameter.
 
-  If the Erlang/OTP `m::json` module is available, or [json_polyfill][jp] is available,
-  it will be used as the default JSON engine. Otherwise, [Jason][jason] will be treated as
-  the default engine. This choice may be overridden with application configuration, as
-  this example shows using [Thoas][thoas].
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
+    considered successful. Any other result will be treated as failure.
 
-  ```elixir
-  import Config
+    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
+    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
+    the default engine. This choice may be overridden with application configuration, as
+    this example shows using [Thoas][thoas].
 
-  config :enviable, :json_engine, :thoas
-  ```
+    ```elixir
+    import Config
+
+    config :enviable, :json_engine, :thoas
+    ```
 
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
@@ -2116,6 +2181,18 @@ defmodule Enviable do
   - `:downcase`: either `false` (the default), `true`, or the mode parameter for
     `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
 
+    The default `:downcase` value for boolean conversions can be changed at compile time
+    through application configuration:
+
+    ```elixir
+    config :enviable, :boolean_downcase, true
+    config :enviable, :boolean_downcase, :default
+    config :enviable, :boolean_downcase, :ascii
+    ```
+
+    > In the next major version of Enviable, the default `:downcase` value will be
+    > changing to `:default`.
+
   ### Examples
 
   ```elixir
@@ -2243,20 +2320,22 @@ defmodule Enviable do
   ### Options
 
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`) or an arity 1 function. If it produces `{:ok, json_value}` or an
-    expected JSON type result, it will be considered successful. Any other result will be
-    treated as failure.
+    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
+    a `t:mfa/0`, the variable value will be passed as the first parameter.
 
-  If the Erlang/OTP `m::json` module is available, or [json_polyfill][jp] is available,
-  it will be used as the default JSON engine. Otherwise, [Jason][jason] will be treated as
-  the default engine. This choice may be overridden with application configuration, as
-  this example shows using [Thoas][thoas].
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
+    considered successful. Any other result will be treated as failure.
 
-  ```elixir
-  import Config
+    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
+    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
+    the default engine. This choice may be overridden with application configuration, as
+    this example shows using [Thoas][thoas].
 
-  config :enviable, :json_engine, :thoas
-  ```
+    ```elixir
+    import Config
+
+    config :enviable, :json_engine, :thoas
+    ```
 
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
