@@ -3,23 +3,34 @@ defmodule Enviable.Conversion.Config do
 
   @moduledoc false
 
+  @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, false)
+
+  default_engine =
+    if Code.ensure_loaded?(:json) do
+      :json
+    else
+      Jason
+    end
+
+  @default_engine Application.compile_env(:enviable, :json_engine, default_engine)
+
   @log_levels [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none]
   @log_levels_map Map.new(@log_levels, &{Atom.to_string(&1), &1})
 
   @spec parse(Enviable.Conversion.conversion(), keyword) :: {:ok, map()} | {:error, String.t()}
   def parse(type, opts) when type in [:atom, :safe_atom] do
-    with {:ok, downcase} <- opt_downcase(opts),
+    with {:ok, casefold} <- opt_casefold(opts),
          {:ok, allowed} <- atom_allowed(opts),
          {:ok, default} <- atom_default(opts, allowed) do
-      {:ok, %{downcase: downcase, default: default, allowed: allowed}}
+      {:ok, %{casefold: casefold, default: default, allowed: allowed}}
     end
   end
 
   def parse(:boolean, opts) do
     with {:ok, {truthy, falsy}} <- boolean_matchers(opts),
-         {:ok, downcase} <- opt_downcase(opts),
+         {:ok, casefold} <- opt_boolean_casefold(opts, @boolean_downcase),
          {:ok, default} <- boolean_default(opts) do
-      {:ok, %{default: default, downcase: downcase, falsy: falsy, truthy: truthy}}
+      {:ok, %{default: default, casefold: casefold, falsy: falsy, truthy: truthy}}
     end
   end
 
@@ -112,7 +123,13 @@ defmodule Enviable.Conversion.Config do
   def parse(base64, opts) when base64 in [:base64, :url_base64], do: decode_opts(opts, [:whitespace, :padding])
 
   def parse(:list, opts) do
-    decode_opts(opts, [:delimiter, :parts, :trim, :on, :include_captures])
+    with {:ok, config} <- decode_opts(opts, [:delimiter, :parts, :trim, :on, :include_captures]) do
+      case Keyword.fetch(opts, :default) do
+        :error -> {:ok, config}
+        {:ok, value} when is_list(value) -> {:ok, Map.put(config, :default, value)}
+        _ -> {:error, "non-list `default` value"}
+      end
+    end
   end
 
   defguardp is_json(value)
@@ -306,16 +323,11 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
-  if Code.ensure_loaded?(:json) do
-    @default_engine :json
-  else
-    @default_engine Jason
-  end
-
   defp json_engine(opts) do
     case Keyword.fetch(opts, :engine) do
-      :error -> {:ok, Application.get_env(:enviable, :json, @default_engine)}
+      :error -> {:ok, @default_engine}
       {:ok, engine} when is_atom(engine) or is_function(engine, 1) -> {:ok, engine}
+      {:ok, {m, f, a} = engine} when is_atom(m) and is_atom(f) and is_list(a) -> {:ok, engine}
       _ -> {:error, "invalid `engine` value"}
     end
   end
@@ -335,11 +347,39 @@ defmodule Enviable.Conversion.Config do
     |> Map.new()
   end
 
-  defp opt_downcase(opts) do
-    case Keyword.get(opts, :downcase, false) do
-      true -> {:ok, :default}
-      atom when atom in [false, :default, :ascii, :greek, :turkic] -> {:ok, atom}
+  defp opt_boolean_casefold(opts, default) do
+    case Keyword.get(opts, :downcase, default) do
+      true -> {:ok, {:downcase, :default}}
+      atom when atom in [false, :default, :ascii, :greek, :turkic] -> {:ok, {:downcase, atom}}
       _ -> {:error, "invalid `downcase` value"}
+    end
+  end
+
+  defp opt_casefold(opts) do
+    case {Keyword.fetch(opts, :downcase), Keyword.fetch(opts, :upcase)} do
+      {:error, :error} ->
+        {:ok, {:downcase, false}}
+
+      {{:ok, _}, {:ok, _}} ->
+        {:error, "`downcase` and `upcase` options both provided"}
+
+      {{:ok, true}, _} ->
+        {:ok, {:downcase, :default}}
+
+      {{:ok, value}, _} when value in [false, :default, :ascii, :greek, :turkic] ->
+        {:ok, {:downcase, value}}
+
+      {{:ok, _}, _} ->
+        {:error, "invalid `downcase` value"}
+
+      {_, {:ok, true}} ->
+        {:ok, {:upcase, :default}}
+
+      {_, {:ok, value}} when value in [false, :default, :ascii, :greek, :turkic] ->
+        {:ok, {:upcase, value}}
+
+      {_, {:ok, _}} ->
+        {:error, "invalid `upcase` value"}
     end
   end
 end

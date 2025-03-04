@@ -47,4 +47,14 @@ defmodule EnviableTest do
       assert Enviable.get_env(@test_var) == nil
     end
   end
+
+  describe "test cases from discovered bugs" do
+    test "get_env_as_boolean works with UNSET and downcase" do
+      assert false == Enviable.get_env_as_boolean("UNSET", downcase: true)
+    end
+
+    test "get_env_as_list works with UNSET and default" do
+      assert [] == Enviable.get_env_as_list("UNSET", default: [])
+    end
+  end
 end
