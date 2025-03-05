@@ -8,8 +8,9 @@ variables easier when configuring Elixir projects. It is designed to work
 configuration environment loaders like [Dotenvy][Dotenvy] and provides robust
 value conversion like [jetenv][jetenv].
 
-Enviable 1.4 adds explicit functions for retrieval and conversion of encoded
-values and adds a new encoded value, `list`, for delimited lists.
+Enviable 1.5 fixes several bugs, adds `:upcase` conversion for `atom` and
+`safe_atom` conversions, and adds the ability to configure the default behaviour
+for boolean case folding.
 
 ## Usage
 
