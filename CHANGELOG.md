@@ -1,5 +1,10 @@
 # Enviable Changelog
 
+## NEXT / 2025-MM-DD
+
+- Improved examples for using [Dotenvy][dotenvy] and added references to
+  [Nvir][nvir] as a compatible library.
+
 ## 1.5.0 / 2025-03-04
 
 - Fixed a bug with `list` conversion for `get_env_as_list` and `get_env_as`
@@ -81,3 +86,6 @@
 ## 1.0.0 / 2024-12-10
 
 - Initial release.
+
+[dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+[nvir]: https://hexdocs.pm/nvir/readme.html
