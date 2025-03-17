@@ -1,9 +1,9 @@
 defmodule Enviable do
   @moduledoc """
-  Enviable is a small collection of functions to make working with environment variables
-  easier when configuring Elixir projects. It is designed to work configuration
-  environment loaders like [Dotenvy][] and provides robust value conversion like
-  [jetenv][].
+  Enviable is a small collection of functions to improve Elixir project configuration via
+  environment variables as proposed under the [12-factor][12f] application model. It works
+  well with configuration environment loaders like [Dotenvy][Dotenvy] or [Nvir][nvir] and
+  provides robust value conversion like [jetenv][jetenv].
 
   ### Usage
 
@@ -16,7 +16,7 @@ defmodule Enviable do
   import Enviable
 
   client = fetch_env!("CLIENT")
-  Dotenvy.source([".env", ".env.\#{client}", get_env()])
+  Dotenvy.source([".env", ".env.\#{client}", get_env()], side_effect: &put_env/1)
 
   # Before
   #
@@ -31,6 +31,13 @@ defmodule Enviable do
     port: fetch_env_as_integer!("PORT"),
     ssl: get_env_as_boolean("SSL_ENABLED")
   ```
+
+  > #### Info {: .info}
+  >
+  > When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1`
+  > is **required**, as Enviable works with the system environment variable table.
+  > Future versions of Enviable may offer ways to work with the default Dotenvy
+  > side effect.
 
   ### Configuration
 
@@ -65,10 +72,12 @@ defmodule Enviable do
     config :enviable, :json_engine, {Jason, :decode, [[floats: :decimals]]}
     ```
 
+  [12f]: https://12factor.net/
   [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
   [jetenv]: https://hexdocs.pm/jetenv/readme.html
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
+  [nvir]: https://hexdocs.pm/nvir/readme.html
   """
 
   alias Enviable.Conversion

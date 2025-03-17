@@ -3,10 +3,11 @@
 - code :: https://github.com/halostatue/enviable
 - issues :: https://github.com/halostatue/enviable/issues
 
-Enviable is a small collection of functions to make working with environment
-variables easier when configuring Elixir projects. It is designed to work
-configuration environment loaders like [Dotenvy][Dotenvy] and provides robust
-value conversion like [jetenv][jetenv].
+Enviable is a small collection of functions to improve Elixir project
+configuration via environment variables as proposed under the [12-factor][12f]
+application model. It works well with configuration environment loaders like
+[Dotenvy][dotenvy] or [Nvir][nvir] and provides robust value conversion like
+[jetenv][jetenv].
 
 Enviable 1.5 fixes several bugs, adds `:upcase` conversion for `atom` and
 `safe_atom` conversions, and adds the ability to configure the default behaviour
@@ -23,13 +24,20 @@ import Config
 import Enviable
 
 client = fetch_env!("CLIENT")
-Dotenvy.source([".env", ".env.#{client}", get_env()])
+Dotenvy.source([".env", ".env.#{client}", get_env()], side_effect: &put_env/1)
 
 config :my_app,
   key: fetch_env!("SECRET_KEY"),
   port: fetch_env_as_integer!("PORT"),
   ssl: get_env_as_boolean("SSL_ENABLED")
 ```
+
+> #### Info {: .info}
+>
+> When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1`
+> is **required**, as Enviable works with the system environment variable table.
+> Future versions of Enviable may offer ways to work with the default Dotenvy
+> side effect.
 
 ## Installation
 
@@ -50,7 +58,9 @@ Documentation is found on [HexDocs][docs].
 
 `Enviable` follows [Semantic Versioning 2.0][semver].
 
+[12f]: https://12factor.net/
 [docs]: https://hexdocs.pm/enviable
-[semver]: http://semver.org/
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
 [jetenv]: https://hexdocs.pm/jetenv/readme.html
+[nvir]: https://hexdocs.pm/nvir/readme.html
+[semver]: http://semver.org/
