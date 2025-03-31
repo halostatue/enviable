@@ -14,7 +14,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: KineticCafe/actions/dependabot-automerge@3a2675f4bcbe3a8ae8dc6ad66da72b920792b37c # v2.0.0
+      - uses: KineticCafe/actions/dependabot-automerge@e429bd61bc6c97f06832e02dfbc7aff3bff5381c # v2.0.1
         with:
           update-type: minor
           merge-type: rebase
