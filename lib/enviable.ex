@@ -464,7 +464,10 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_charlist(String.t(), binary() | [{:default, charlist() | binary()}]) :: nil | charlist()
   def get_env_as_charlist(varname, opts \\ [])
-  def get_env_as_charlist(varname, default) when is_binary(default), do: get_env_as(varname, :charlist, default: default)
+
+  def get_env_as_charlist(varname, default) when is_binary(default),
+    do: get_env_as(varname, :charlist, default: default)
+
   def get_env_as_charlist(varname, opts), do: get_env_as(varname, :charlist, opts)
 
   @doc """

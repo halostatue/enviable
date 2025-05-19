@@ -49,7 +49,7 @@ defmodule Enviable.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: [:test]},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
-      {:styler, "~> 1.2", only: [:dev, :test], runtime: false}
+      {:quokka, "~> 2.6", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -84,8 +84,7 @@ defmodule Enviable.MixProject do
 
   defp test_coverage do
     [
-      tool: ExCoveralls,
-      ignore_modules: [KineticEcto.TestImage, KineticEcto.TestImage.HSLA, KineticEcto.TestImage.RGBA]
+      tool: ExCoveralls
     ]
   end
 end

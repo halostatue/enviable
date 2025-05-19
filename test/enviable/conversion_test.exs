@@ -1,6 +1,7 @@
 defmodule Enviable.ConversionTest do
   use ExUnit.Case
 
+  alias Elixir.Enviable.MakeItUp
   alias Enviable.Conversion
 
   paths = Path.wildcard("test/fixtures/*.pem")
@@ -428,7 +429,7 @@ defmodule Enviable.ConversionTest do
     end
 
     test "value" do
-      assert Elixir.Enviable.MakeItUp == convert_as("Enviable.MakeItUp", :module)
+      assert MakeItUp == convert_as("Enviable.MakeItUp", :module)
     end
 
     test "value with allowed" do
