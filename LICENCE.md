@@ -1,5 +1,7 @@
 # Licence
 
+- SPDX-Licence-Identifier: [Apache-2.0][apache-2]
+
 Enviable is copyright © 2024–2025 Austin Ziegler and is licensed under the
 [Apache License, version 2.0](licences/APACHE-2.0.txt). Portions of Enviable are
 adapted from the `System` module in [Elixir][elixir].
@@ -22,5 +24,6 @@ The `Signed-off-by` trailer can be automatically added by git with the `-s` or
 git commit --signoff
 ```
 
-[trailer]: https://git-scm.com/docs/git-interpret-trailers
+[apache-2]: https://spdx.org/licenses/Apache-2.0.html
 [elixir]: https://github.com/elixir-lang/elixir
+[trailer]: https://git-scm.com/docs/git-interpret-trailers
