@@ -9,6 +9,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   elixir-ci:
     name: Elixir ${{ matrix.elixir }} (OTP ${{ matrix.otp }})
@@ -48,10 +52,15 @@ jobs:
       contents: read
 
     steps:
-      - name: Harden the runner
+      - name: Harden Runner
         uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            builds.hex.pm:443
+            coveralls.io:443
+            github.com:443
+            repo.hex.pm:443
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
