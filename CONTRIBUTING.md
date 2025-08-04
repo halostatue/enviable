@@ -18,7 +18,7 @@ I have several guidelines to contributing code through pull requests:
 - I use code formatters, static analysis tools, and linting to ensure consistent
   styles and formatting. There should be no warnings output from compile or test
   run processes. I use `mix compile --warnings-as-errors`, [Credo][credo], and
-  `mix format` (with [Quokka][quokka])
+  `mix format` (with [Quokka][quokka]).
 
 - Proposed changes should be on a thoughtfully-named topic branch and organized
   into logical commit chunks as appropriate.
@@ -40,11 +40,10 @@ I have several guidelines to contributing code through pull requests:
 
 ## LLM-Generated Contribution Policy
 
-Color is a library full of complex math and subtle decisions (some of them
-possibly even wrong). It is extremely important that any issues or pull requests
-be well understood by the submitter and that, especially for pull requests, the
-developer can attest to the [Developer Certificate of Origin][dco] for each pull
-request (see [LICENCE](LICENCE.md)).
+Enviable contributions must be well understood by the submitter and that,
+especially for pull requests, the developer can attest to the
+[Developer Certificate of Origin][dco] for each pull request (see
+[LICENCE](LICENCE.md)).
 
 If LLM assistance is used in writing pull requests, this must be documented in
 the commit message and pull request. If there is evidence of LLM assistance
