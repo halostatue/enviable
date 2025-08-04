@@ -1,25 +1,23 @@
 defmodule Enviable.MixProject do
   use Mix.Project
 
+  @app :enviable
+  @project_url "https://github.com/halostatue/enviable"
+  @version "1.5.0"
+
   def project do
     [
-      app: :enviable,
-      version: "1.5.0",
+      app: @app,
       description: "Useful functions for working with environment variables",
+      version: @version,
+      source_url: @project_url,
+      name: "Enviable",
       elixir: "~> 1.14",
+      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      name: "Enviable",
-      source_url: "https://github.com/halostatue/enviable",
+      package: package(),
       docs: docs(),
-      package: [
-        files: ~w(lib .formatter.exs mix.exs *.md),
-        licenses: ["Apache-2.0"],
-        links: %{
-          "Source" => "https://github.com/halostatue/enviable",
-          "Issues" => "https://github.com/halostatue/enviable/issues"
-        }
-      ],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.github": :test,
@@ -36,8 +34,21 @@ defmodule Enviable.MixProject do
   end
 
   def application do
+    [extra_applications: [:logger, :public_key]]
+  end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp package do
     [
-      extra_applications: [:logger, :public_key]
+      maintainers: "Austin Ziegler",
+      licenses: ["Apache-2.0"],
+      files: ~w(lib .formatter.exs mix.exs *.md),
+      links: %{
+        "Source" => @project_url,
+        "Issues" => @project_url <> "/issues"
+      }
     ]
   end
 
@@ -68,18 +79,13 @@ defmodule Enviable.MixProject do
         ],
         "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"]
       ],
+      source_ref: "v#{@version}",
+      source_url: @project_url,
+      canonical: "https://hexdocs.pm/#{@app}",
       default_group_for_doc: fn metadata ->
         if group = metadata[:group], do: "Functions: #{group}"
       end
     ]
-  end
-
-  defp elixirc_paths(:test) do
-    ~w(lib test/support)
-  end
-
-  defp elixirc_paths(_) do
-    ~w(lib)
   end
 
   defp test_coverage do
