@@ -6,10 +6,10 @@ defmodule Enviable.Conversion.Config do
   @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, false)
 
   default_engine =
-    if Code.ensure_loaded?(:json) do
-      :json
-    else
-      Jason
+    cond do
+      Code.ensure_loaded?(JSON) -> JSON
+      Code.ensure_loaded?(:json) -> :json
+      true -> Jason
     end
 
   @default_engine Application.compile_env(:enviable, :json_engine, default_engine)

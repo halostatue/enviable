@@ -145,10 +145,16 @@ defmodule Enviable.Conversion do
     If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
     considered successful. Any other result will be treated as failure.
 
-    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
-    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
-    the default engine. This choice may be overridden with application configuration, as
-    this example shows using [Thoas][thoas].
+    The default JSON module is selected from the `:enviable` application configuration
+    option `:json_engine`. If this is unset, the default value is one of the following,
+    in order:
+
+    - [`JSON`][elixir-json] if the Elixir `m:JSON` module is available (Elixir 1.18+)
+    - `:json` if the Erlang/OTP 27+ `m::json` module is available or if
+      [json_polyfill][jp] is installed
+    -  [Jason][jason]
+
+    This example shows using [Thoas][thoas] as the JSON engine..
 
     ```elixir
     import Config
@@ -156,6 +162,7 @@ defmodule Enviable.Conversion do
     config :enviable, :json_engine, :thoas
     ```
 
+  [elixir-json]: https://hexdocs.pm/elixir/JSON.html
   [jp]: https://hexdocs.pm/json_polyfill/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
   [thoas]: https://hexdocs.pm/thoas/readme.html
