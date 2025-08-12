@@ -5,6 +5,8 @@
 - Improved examples for using [Dotenvy][dotenvy] and added references to
   [Nvir][nvir] as a compatible library.
 
+- Added support for the new JSON module in Elixir 1.18.
+
 ## 1.5.0 / 2025-03-04
 
 - Fixed a bug with `list` conversion for `get_env_as_list` and `get_env_as`
