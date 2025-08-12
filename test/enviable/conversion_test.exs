@@ -21,6 +21,8 @@ defmodule Enviable.ConversionTest do
     def decode_json(v, opts \\ [])
     def decode_json("raise", _opts), do: raise("raise")
     def decode_json(v, opts), do: Jason.decode(v, opts)
+
+    def decode(v, opts \\ []), do: decode_json(v, opts)
   end
 
   setup do
@@ -367,6 +369,17 @@ defmodule Enviable.ConversionTest do
       assert_conversion_error("3.1", :json, engine: fn _ -> :error end)
       assert_conversion_error("3.1", :json, engine: fn _ -> raise "foo" end)
       assert 3.1 === convert_as("3.1", :json, engine: fn v -> Jason.decode(v) end)
+    end
+
+    test "with atom engine" do
+      assert 3.1 === convert_as("3.1", :json, engine: JsonModule)
+      assert 3 === convert_as("3", :json, engine: JsonModule)
+      assert "3" == convert_as("\"3\"", :json, engine: JsonModule)
+      assert %{} == convert_as("{}", :json, engine: JsonModule)
+      assert [] == convert_as("[]", :json, engine: JsonModule)
+      assert true == convert_as("true", :json, engine: JsonModule)
+      assert_conversion_error("xyz", :json, engine: JsonModule)
+      assert_conversion_error("raise", :json, engine: JsonModule)
     end
 
     test "with mfa engine" do

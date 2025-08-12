@@ -1,11 +1,13 @@
 # Enviable Changelog
 
-## NEXT / 2025-MM-DD
+## 1.6.0 / 2025-08-12
 
 - Improved examples for using [Dotenvy][dotenvy] and added references to
   [Nvir][nvir] as a compatible library.
 
 - Added support for the new JSON module in Elixir 1.18.
+
+- Added support for [Decimal][decimal].
 
 ## 1.5.0 / 2025-03-04
 
@@ -16,6 +18,7 @@
 
 - Added a compile-time configuration option to change the default boolean
   `:downcase` option. The default value is currently `false` (do not downcase).
+
   The next major version of Enviable will change this to `:default`, as it
   should not matter whether the matched value is `true`, `TRUE`, or `True` for
   boolean tests.
@@ -90,4 +93,5 @@
 - Initial release.
 
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+[decimal]: https://hexdocs.pm/decimal/readme.html
 [nvir]: https://hexdocs.pm/nvir/readme.html
