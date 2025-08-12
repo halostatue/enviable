@@ -43,6 +43,33 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
+  if Code.ensure_loaded?(Decimal) do
+    def parse(:decimal, opts) do
+      case Keyword.fetch(opts, :default) do
+        :error ->
+          {:ok, %{default: nil}}
+
+        {:ok, %Decimal{} = value} ->
+          {:ok, %{default: Decimal.new(value)}}
+
+        {:ok, value} when is_float(value) ->
+          {:ok, %{default: Decimal.from_float(value)}}
+
+        {:ok, value} when is_integer(value) ->
+          {:ok, %{default: Decimal.new(value)}}
+
+        {:ok, value} when is_binary(value) ->
+          case Decimal.parse(value) do
+            {decimal, ""} -> {:ok, %{default: decimal}}
+            _ -> {:error, "invalid decimal `default` value"}
+          end
+
+        _ ->
+          {:error, "invalid decimal `default` value"}
+      end
+    end
+  end
+
   def parse(:float, opts) do
     case Keyword.fetch(opts, :default) do
       :error ->

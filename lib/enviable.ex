@@ -53,8 +53,10 @@ defmodule Enviable do
     config :enviable, :boolean_downcase, :ascii
     ```
 
-    If unspecified, defaults to `false`. The next major version of Enviable will change
-    this to `:default`.
+    If unspecified, defaults to `false`.
+
+    > The next major version of Enviable will change this to `:default`, as it should not
+    > matter whether the matched value is `true`, `TRUE`, or `True` for boolean tests.
 
   - `:json_engine`: The default JSON engine to use for JSON conversions. This may be
     provided as a `t:module/0` (which must export `decode/1`) or a `t:mfa/0` tuple. When
@@ -112,6 +114,7 @@ defmodule Enviable do
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `get_env_as_atom/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `get_env_as_boolean/2`)
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `get_env_as_charlist/2`)
+  - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `get_env_as_decimal/2`)
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `get_env_as_elixir/1`)
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `get_env_as_erlang/1`)
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `get_env_as_float/2`)
@@ -634,11 +637,19 @@ defmodule Enviable do
   "3.5R"
 
   iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
+  iex> Enviable.get_env_as_json("JSON", engine: &Jason.decode!/1)
+  [%{"foo" => "bar"}]
+
+  iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
   iex> Enviable.get_env_as_json("JSON")
   [%{"foo" => "bar"}]
 
   iex> Enviable.put_env("JSON", "ff")
   iex> Enviable.get_env_as_json("JSON")
+  ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
+
+  iex> Enviable.put_env("JSON", "ff")
+  iex> Enviable.get_env_as_json("JSON", engine: &Jason.decode!/1)
   ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
   ```
   """
@@ -1196,6 +1207,7 @@ defmodule Enviable do
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean/2`)
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `fetch_env_as_charlist/1`)
+  - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal/1`)
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir/1`)
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang/1`)
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `fetch_env_as_float/1`)
@@ -2034,6 +2046,7 @@ defmodule Enviable do
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom!/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean!/2`)
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `fetch_env_as_charlist!/2`)
+  - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal!/2`)
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir!/1`)
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang!/1`)
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `fetch_env_as_float!/2`)
@@ -2300,6 +2313,129 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_integer!(String.t(), [{:base, 2..36}]) :: integer()
   def fetch_env_as_integer!(varname, opts \\ []), do: fetch_env_as!(varname, :integer, opts)
+
+  if Code.ensure_loaded?(Decimal) do
+    @doc """
+    Returns the value of an environment variable converted to a `t:Decimal.t/0` value or
+    a default value if the variable is unset. If no `default` is provided, `nil` will be
+    returned.
+
+    ### Options
+
+    - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
+      or `t:binary/0` (the latter three must convert cleanly to `t:Decimal.t/0`).
+
+    A shorthand for the `default` value may be provided as a `t:Decimal.t/0`, `t:float/0`,
+    `t:integer/0`, or `t:binary/0` value.
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.get_env_as_decimal("DECIMAL")
+    nil
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", Decimal.new("3.14"))
+    Decimal.new("3.14")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", 25.5)
+    Decimal.new("25.5")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", 25)
+    Decimal.new("25")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", "255")
+    Decimal.new("255")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: Decimal.new("3.14"))
+    Decimal.new("3.14")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: 25.5)
+    Decimal.new("25.5")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: 25)
+    Decimal.new("25")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: "255")
+    Decimal.new("255")
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: "3.5R")
+    ** (ArgumentError) could not convert environment variable "DECIMAL" to type decimal: invalid decimal `default` value
+
+    iex> Enviable.get_env_as_decimal("DECIMAL", default: %{})
+    ** (ArgumentError) could not convert environment variable "DECIMAL" to type decimal: invalid decimal `default` value
+
+    iex> Enviable.put_env("DECIMAL", "1")
+    iex> Enviable.get_env_as_decimal("DECIMAL")
+    Decimal.new("1")
+
+    iex> Enviable.put_env("DECIMAL", "ff")
+    iex> Enviable.get_env_as_decimal("DECIMAL")
+    ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
+    ```
+    """
+    @doc since: "1.6.0"
+    @doc group: "Conversion"
+    @spec get_env_as_decimal(
+            String.t(),
+            Decimal.t() | float() | integer() | binary() | [{:default, Decimal.t() | binary() | float() | integer()}]
+          ) ::
+            Decimal.t() | nil
+    def get_env_as_decimal(varname, opts \\ [])
+
+    def get_env_as_decimal(varname, default)
+        when is_binary(default) or is_float(default) or is_integer(default) or is_struct(default, Decimal),
+        do: get_env_as(varname, :decimal, default: default)
+
+    def get_env_as_decimal(varname, opts), do: get_env_as(varname, :decimal, opts)
+
+    @doc """
+    Returns the value of an environment variable converted to a `t:Decimal.t/0` value as `{:ok,
+    Decimal.t()}` or :error if the variable is unset.
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.fetch_env_as_decimal("UNSET")
+    :error
+
+    iex> Enviable.put_env("DECIMAL", "1")
+    iex> Enviable.fetch_env_as_decimal("DECIMAL")
+    {:ok, Decimal.new("1")}
+
+    iex> Enviable.put_env("DECIMAL", "ff")
+    iex> Enviable.fetch_env_as_decimal("DECIMAL")
+    ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
+    ```
+    """
+    @doc since: "1.6.0"
+    @doc group: "Conversion"
+    @spec fetch_env_as_decimal(String.t()) :: {:ok, Decimal.t()} | :error
+    def fetch_env_as_decimal(varname), do: fetch_env_as(varname, :decimal, [])
+
+    @doc """
+    Returns the value of an environment variable converted to a `t:Decimal.t/0` value or
+    `:error` if the variable is unset.
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.fetch_env_as_decimal!("UNSET")
+    ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
+
+    iex> Enviable.put_env("DECIMAL", "1")
+    iex> Enviable.fetch_env_as_decimal!("DECIMAL")
+    Decimal.new("1")
+
+    iex> Enviable.put_env("DECIMAL", "ff")
+    iex> Enviable.fetch_env_as_decimal!("DECIMAL")
+    ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
+    ```
+    """
+    @doc since: "1.6.0"
+    @doc group: "Conversion"
+    @spec fetch_env_as_decimal!(String.t()) :: Decimal.t()
+    def fetch_env_as_decimal!(varname), do: fetch_env_as!(varname, :decimal, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:float/0` value or

@@ -1,6 +1,6 @@
 .ez
 /.elixir_ls/
-/.fetch
+/.fetch/
 /_build/
 /cover/
 /deps/
@@ -8,5 +8,4 @@
 /tmp/
 enviable-*.tar
 erl_crash.dump
-/priv/plts/*.plt
-/priv/plts/*.plt.hash
+/priv/plts/

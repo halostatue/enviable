@@ -110,6 +110,17 @@ defmodule Enviable.Conversion do
   @type convert_charlist :: :charlist
 
   @typedoc """
+  Indicates a conversion to `t:Decimal.t/0`.
+
+  ### Options
+
+  - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
+    or `t:binary/0` (the latter three must convert cleanly to `t:Decimal.t/0`).
+  """
+  @typedoc since: "1.6.0"
+  @type convert_decimal :: :decimal
+
+  @typedoc """
   Indicates a conversion to `t:float/0`.
 
   ### Options
@@ -326,6 +337,7 @@ defmodule Enviable.Conversion do
           convert_atom
           | convert_boolean
           | convert_charlist
+          | convert_decimal
           | convert_elixir
           | convert_erlang
           | convert_float
@@ -522,6 +534,13 @@ defmodule Enviable.Conversion do
 
   defp convert_to(:charlist, value, _config) do
     {:ok, String.to_charlist(value)}
+  end
+
+  defp convert_to(:decimal, value, _config) do
+    case Decimal.parse(value) do
+      {decimal, ""} -> {:ok, decimal}
+      _ -> :error
+    end
   end
 
   defp convert_to(:float, value, _config) do
