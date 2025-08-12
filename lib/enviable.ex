@@ -107,7 +107,7 @@ defmodule Enviable do
   value if the variable is unset. If no `default` is provided, `nil` is returned (unless
   converting to `:boolean`, which will return `false`).
 
-  Suported primitive conversions are:
+  Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `get_env_as_atom/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `get_env_as_boolean/2`)
@@ -1191,7 +1191,7 @@ defmodule Enviable do
   Returns the value of an environment variable converted to the target `type` as `{:ok,
   term()}` or `:error` if the variable is unset.
 
-  Suported primitive conversions are:
+  Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean/2`)
@@ -2029,7 +2029,7 @@ defmodule Enviable do
   Returns the value of an environment variable converted to the target `type` or raises an
   exception if the variable is unset.
 
-  Suported primitive conversions are:
+  Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom!/2`)
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean!/2`)
