@@ -888,6 +888,46 @@ defmodule Enviable.ConversionTest do
     end
   end
 
+  if function_exported?(Kernel, :to_timeout, 1) do
+    describe "conversion: timeout" do
+      test "value nil" do
+        assert :infinity == convert_as(nil, :timeout)
+      end
+
+      test "value nil with default" do
+        assert :infinity == convert_as(nil, :timeout, default: :infinity)
+        assert :infinity == convert_as(nil, :timeout, default: "infinity")
+        assert 3 == convert_as(nil, :timeout, default: 3)
+        assert 5 == convert_as(nil, :timeout, default: "5")
+        assert 5000 == convert_as(nil, :timeout, default: "5s")
+        assert 5000 == convert_as(nil, :timeout, default: Duration.new!(second: 5))
+      end
+
+      test "value infinity" do
+        assert :infinity == convert_as("infinity", :timeout)
+      end
+
+      test "value integer (milliseconds)" do
+        assert 3 == convert_as("3", :timeout)
+      end
+
+      test "value timeout string" do
+        assert 5000 == convert_as("5s", :timeout)
+      end
+
+      test "invalid timeout string" do
+        assert_conversion_error("X", :timeout)
+      end
+
+      test "invalid default" do
+        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: 1.5)
+        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: [bad: :list])
+        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "X")
+        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "15s s")
+      end
+    end
+  end
+
   describe "conversion: url_base64" do
     setup do
       data = File.read!(pems("example.org"))

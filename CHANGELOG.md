@@ -1,9 +1,21 @@
 # Enviable Changelog
 
+## 1.7.0 / 2025-10-15
+
+> The next major version of Enviable will support Elixir 1.17+ only.
+
+- Added support for timeout values processed through [`to_timeout`][to_timeout].
+
+  - Added a parser built with [`nimble_parsec`][nimble_parsec] to parse timeout
+    strings. This parser (Enviable.Conversion.TimeoutParser) and unit tests were
+    developed with the assistance of [Kiro][kiro] with
+    [Timeout Values][timeout-values] as the initial prompt with human review and
+    revision.
+
 ## 1.6.0 / 2025-08-12
 
-- Improved examples for using [Dotenvy][dotenvy] and added references to
-  [Nvir][nvir] as a compatible library.
+- Improved examples for using [`Dotenvy`][dotenvy] and added references to
+  [`Nvir`][nvir] as a compatible library.
 
 - Added support for the new JSON module in Elixir 1.18.
 
@@ -47,7 +59,7 @@
 
   - Updated doc names to how I now structure my projects.
 
-  - Add excoveralls for coverage.
+  - Add [`excoveralls`][excoveralls] for coverage.
 
 ## 1.3.0 / 2025-01-16
 
@@ -74,7 +86,7 @@
 - Added conversions for `log_level`.
 - Add Elixir 1.18 / OTP 27 to the test matrix.
 - Update dependencies.
-- Add mise configuration.
+- Add [`mise`][mise] configuration.
 - Fix dialyzer configuration.
 
 ## 1.1.0 / 2024-12-22
@@ -92,6 +104,12 @@
 
 - Initial release.
 
-[dotenvy]: https://hexdocs.pm/dotenvy/readme.html
 [decimal]: https://hexdocs.pm/decimal/readme.html
+[dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+[excoveralls]: https://hexdocs.pm/excoveralls/readme.html
+[kiro]: https://kiro.dev
+[mise]: https://mise.jdx.dev
+[nimble_parsec]: https://hexdocs.pm/nimble_parsec/NimbleParsec.html
 [nvir]: https://hexdocs.pm/nvir/readme.html
+[timeout-values]: `m:Enviable#fetch_env_as_timeout/1-timeout-values`
+[to_timeout]: https://hexdocs.pm/elixir/Kernel.html#to_timeout/1

@@ -56,7 +56,12 @@ defmodule Enviable do
     If unspecified, defaults to `false`.
 
     > The next major version of Enviable will change this to `:default`, as it should not
-    > matter whether the matched value is `true`, `TRUE`, or `True` for boolean tests.
+
+    > #### Default Change {: .info}
+    >
+    > In the next major version of Enviable, the fallback default `:downcase` value is
+    > changing to `:default` instead of `false` as it should not matter whether the
+    > matched value is `true`, `TRUE`, or `True` for boolean tests.
 
   - `:json_engine`: The default JSON engine to use for JSON conversions. This may be
     provided as a `t:module/0` (which must export `decode/1`) or a `t:mfa/0` tuple. When
@@ -126,6 +131,8 @@ defmodule Enviable do
   - `:safe_atom` (`t:Enviable.Conversion.convert_safe_atom/0`, `get_env_as_safe_atom/2`)
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `get_env_as_safe_module/2`)
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `get_env_as_timeout/2`),
+    supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
@@ -843,7 +850,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :erlang}`.
+  decoded with `{:base64, :erlang}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -873,7 +880,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :elixir}`.
+  decoded with `{:base64, :elixir}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -898,17 +905,23 @@ defmodule Enviable do
   def get_env_as_elixir(varname), do: get_env_as(varname, :elixir, [])
 
   @doc """
-  Returns the value of an environment variable decoded as a base 16 string.
+  Returns the value of an environment variable decoded from a base 16 string or `nil` if
+  the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -943,17 +956,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 string.
+  Returns the value of an environment variable decoded from a base 32 string or `nil` if
+  the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
 
@@ -991,17 +1011,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+  Returns the value of an environment variable decoded from a base 32 hex encoded string
+  or `nil` if the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
     is `false` (the opposite of `Base.hex_decode32/2`).
 
@@ -1039,7 +1066,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 64 string.
+  Returns the value of an environment variable decoded from a base 64 string or `nil` if
+  the environment variable is not set.
 
   ## Options
 
@@ -1087,7 +1115,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+  Returns the value of an environment variable decoded from a URL-safe base 64 string or
+  `nil` if the environment variable is not set.
 
   ## Options
 
@@ -1219,6 +1248,8 @@ defmodule Enviable do
   - `:safe_atom` (`t:Enviable.Conversion.convert_safe_atom/0`, `fetch_env_as_safe_atom/2`)
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module/2`)
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout/1`),
+    supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
@@ -1485,7 +1516,7 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted to a `t:float/0` value as `{:ok,
-  float()}` or :error if the variable is unset.
+  float()}` or `:error` if the variable is unset.
 
   ### Examples
 
@@ -1682,7 +1713,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :erlang}`.
+  decoded with `{:base64, :erlang}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -1712,7 +1743,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :elixir}`.
+  decoded with `{:base64, :elixir}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -1737,17 +1768,23 @@ defmodule Enviable do
   def fetch_env_as_elixir(varname), do: fetch_env_as(varname, :elixir, [])
 
   @doc """
-  Returns the value of an environment variable decoded as a base 16 string.
+  Returns the value of an environment variable decoded from a base 16 string as `{:ok,
+  term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -1782,17 +1819,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 string.
+  Returns the value of an environment variable decoded from a base 32 string as `{:ok,
+  term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
 
@@ -1830,17 +1874,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+  Returns the value of an environment variable decoded from a base 32 hex encoded string
+  as `{:ok, term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
     is `false` (the opposite of `Base.hex_decode32/2`).
 
@@ -1878,7 +1929,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 64 string.
+  Returns the value of an environment variable decoded from a base 64 string as `{:ok,
+  term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
@@ -1926,7 +1978,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+  Returns the value of an environment variable decoded from a URL-safe base 64 string as
+  `{:ok, term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
@@ -2060,6 +2113,8 @@ defmodule Enviable do
     `fetch_env_as_safe_atom!/2`)
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module!/2`)
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout!/2`),
+    supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
@@ -2390,7 +2445,7 @@ defmodule Enviable do
 
     @doc """
     Returns the value of an environment variable converted to a `t:Decimal.t/0` value as `{:ok,
-    Decimal.t()}` or :error if the variable is unset.
+    Decimal.t()}` or `:error` if the variable is unset.
 
     ### Examples
 
@@ -2576,7 +2631,7 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted to a log level `t:atom/0` for
-  `Logger.configure/1`  or raises an exception if the variable is unset.
+  `Logger.configure/1` or raises an exception if the variable is unset.
 
   ### Examples
 
@@ -2596,7 +2651,7 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted from a PEM string through
-  `:public_key.pem_decode/1`  or raises an exception if the variable is unset.
+  `:public_key.pem_decode/1` or raises an exception if the variable is unset.
 
   ### Options
 
@@ -2634,7 +2689,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :erlang}`.
+  decoded with `{:base64, :erlang}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -2664,7 +2719,7 @@ defmodule Enviable do
 
   This can be used for tuples, complex map declarations, or other expressions difficult to
   represent with other types. Longer code blocks should be encoded as base 64 text and
-  decoded as `{:base64, :elixir}`.
+  decoded with `{:base64, :elixir}`.
 
   > #### Untrusted Input {: .error}
   >
@@ -2689,17 +2744,23 @@ defmodule Enviable do
   def fetch_env_as_elixir!(varname), do: fetch_env_as!(varname, :elixir, [])
 
   @doc """
-  Returns the value of an environment variable decoded as a base 16 string.
+  Returns the value of an environment variable decoded from a base 16 string or raises an
+  exception if the variable is unset.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -2734,17 +2795,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 string.
+  Returns the value of an environment variable decoded from a base 32 string or raises an
+  exception if the variable is unset.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
 
@@ -2782,17 +2850,24 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 32 hex encoded string.
+  Returns the value of an environment variable decoded from a base 32 hex encoded string
+  or raises an exception if the variable is unset.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
     a `t:Conversion.primit/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
     `:lower`, or `:mixed`.
+
+    > The next major version of Enviable will change this to `:mixed`, as it should not
+    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+
   - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
     is `false` (the opposite of `Base.hex_decode32/2`).
 
@@ -2830,7 +2905,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a base 64 string.
+  Returns the value of an environment variable decoded from a base 64 string or raises an
+  exception if the variable is unset.
 
   ## Options
 
@@ -2878,7 +2954,8 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded as a URL-safe base 64 string.
+  Returns the value of an environment variable decoded from a URL-safe base 64 string or
+  raises an exception if the variable is unset.
 
   ## Options
 
@@ -2989,9 +3066,140 @@ defmodule Enviable do
     fetch_env_as!(varname, type, opts)
   end
 
+  if function_exported?(Kernel, :to_timeout, 1) do
+    timeout_values = """
+    ### Timeout Values
+
+    Timeout values are specified as non-negative integer values with optional suffixes or
+    the word `infinity`. The integer part may have underscores (`_`) separating digits like
+    Elixir itself.
+
+    If no suffix is present, the value is in milliseconds. Supported suffixes are:
+
+    - `week`, `weeks`, `w`: the number of weeks (always 7 days)
+    - `day`, `days`, `d`: the number of days (always 24 hours)
+    - `hour`, `hours`, `h`: the number of hours (always 60 minutes)
+    - `minute`, `minutes`, `m`: the number of minutes (always 60 seconds)
+    - `second`, `seconds`, `s`: the number of seconds (always 1000 milliseconds)
+    - `millisecond`, `milliseconds`, `ms`: the number of milliseconds
+
+    Suffixes may be present with or without a space (`30s` and `30 s` are the same value),
+    and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. See
+    `Kernel.to_timeout/1` for more details.
+
+    Only lowercase suffixes are supported.
+    """
+
+    @doc """
+    Returns the value of an environment variable converted to a millisecond `t:timeout/0` or
+    a default value if the variable is unset. If no `default` is provided, `:infinity` will
+    be returned.
+
+    #{timeout_values}
+
+    ### Options
+
+    - `:default`: The default value. This may be a timeout value described above,
+      a `t:Duration.t/0`, a `t:timeout/0` value, or a `t:keyword/0` list where the keys may
+      be `:week`, `:day`, `:hour`, `:minute`, `:second`, or `:millisecond` as described in
+      `Kernel.to_timeout/1`.
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.get_env_as_timeout("UNSET")
+    :infinity
+
+    iex> Enviable.get_env_as_timeout("UNSET", "30s")
+    30000
+
+    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+    iex> Enviable.get_env_as_timeout("TIMEOUT")
+    30000
+    ```
+    """
+    @doc since: "1.7.0"
+    @doc group: "Conversion"
+    @spec get_env_as_timeout(
+            String.t(),
+            Conversion.timeout_default() | [{:default, Conversion.timeout_default()}]
+          ) :: timeout()
+    def get_env_as_timeout(varname, opts \\ [])
+
+    def get_env_as_timeout(varname, default)
+        when (is_integer(default) and default >= 0) or default == :infinity or is_binary(default) or
+               is_struct(default, Duration),
+        do: get_env_as(varname, :timeout, default: default)
+
+    def get_env_as_timeout(varname, []), do: get_env_as(varname, :timeout, [])
+
+    def get_env_as_timeout(varname, opts) do
+      opts =
+        case Keyword.validate(opts, [:week, :day, :hour, :minute, :second, :millisecond]) do
+          {:ok, _} -> [default: opts]
+          {:error, _} -> opts
+        end
+
+      get_env_as(varname, :timeout, opts)
+    end
+
+    @doc """
+    Returns the value of an environment variable converted to a millisecond `t:timeout/0` as
+    `{:ok, timeout()}` or `:error` if the variable is unset.
+
+    #{timeout_values}
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.fetch_env_as_timeout("UNSET")
+    :error
+
+    iex> Enviable.put_env("TIMEOUT", "infinity")
+    iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+    {:ok, :infinity}
+
+    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+    iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+    {:ok, 30000}
+    ```
+    """
+    @doc since: "1.7.0"
+    @doc group: "Conversion"
+    @spec fetch_env_as_timeout(String.t()) :: {:ok, timeout()} | :error
+    def fetch_env_as_timeout(varname), do: fetch_env_as(varname, :timeout)
+
+    @doc """
+    Returns the value of an environment variable converted to a millisecond `t:timeout/0`
+    or raises an exception if the variable is unset.
+
+    #{timeout_values}
+
+    ### Examples
+
+    ```elixir
+    iex> Enviable.fetch_env_as_timeout!("UNSET")
+    ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
+
+    iex> Enviable.put_env("TIMEOUT", "infinity")
+    iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+    :infinity
+
+    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+    iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+    30000
+    ```
+    """
+    @doc since: "1.7.0"
+    @doc group: "Conversion"
+    @spec fetch_env_as_timeout!(String.t()) :: timeout()
+    def fetch_env_as_timeout!(varname), do: fetch_env_as!(varname, :timeout)
+  end
+
   @doc """
-  Returns the value of an environment variable converted to a `t:boolean/0` value. See
-  `get_env_as_boolean/2` for more details.
+  Returns the value of an environment variable converted to a `t:boolean/0` value.
+
+  Prefer using `get_env_as_boolean/2`.
 
   ### Examples
 
@@ -3006,8 +3214,10 @@ defmodule Enviable do
   def get_env_boolean(varname, opts \\ []), do: get_env_as(varname, :boolean, opts)
 
   @doc """
-  Returns the value of an environment variable as `{:ok, t:boolean/0}` value or `:error`
-  if the variable is unset. See `fetch_env_as_boolean/2` or more details.
+  Returns the value of an environment variable as `{:ok, boolean()}` value or `:error` if
+  the variable is unset.
+
+  Prefer using `fetch_env_as_boolean/2`.
 
   ### Examples
 
@@ -3027,7 +3237,9 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted to a `t:boolean/0` value or
-  raises an exception if the variable is unset. See `fetch_env_as_boolean!/2` for details.
+  raises an exception if the variable is unset.
+
+  Prefer using `fetch_env_as_boolean!/2`.
 
   ```elixir
   iex> Enviable.fetch_env_boolean!("UNSET")
@@ -3045,8 +3257,9 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted to a `t:integer/0` value or `nil`
-  if the variable is not set and a `default` is not provided. See `get_env_as_integer/2`
-  for details.
+  if the variable is not set and a `default` is not provided.
+
+  Prefer using `get_env_as_integer/2`.
 
   ### Examples
 
@@ -3065,7 +3278,9 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable as `{:ok, t:integer/0}` or `:error` if the
-  variable is unset. See `fetch_env_as_integer/2` for details.
+  variable is unset.
+
+  Prefer using `fetch_env_as_integer/2`.
 
   ### Examples
 
@@ -3085,7 +3300,9 @@ defmodule Enviable do
 
   @doc """
   Returns the value of an environment variable converted to a `t:integer/0` value raises
-  an exception if the variable is unset. See `fetch_env_as_integer!/2` for details.
+  an exception if the variable is unset.
+
+  Prefer using `fetch_env_as_integer!/2`.
 
   ### Examples
 

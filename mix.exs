@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "1.6.0"
+  @version "1.7.0"
 
   def project do
     [
@@ -54,6 +54,7 @@ defmodule Enviable.MixProject do
 
   defp deps do
     [
+      {:nimble_parsec, "~> 1.4"},
       {:decimal, "~> 2.0", optional: true},
       {:jason, "~> 1.0", optional: true},
       {:castore, "~> 1.0", only: [:dev, :test]},

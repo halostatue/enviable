@@ -9,9 +9,7 @@ application model. It works well with configuration environment loaders like
 [Dotenvy][dotenvy] or [Nvir][nvir] and provides robust value conversion like
 [jetenv][jetenv].
 
-Enviable 1.5 fixes several bugs, adds `:upcase` conversion for `atom` and
-`safe_atom` conversions, and adds the ability to configure the default behaviour
-for boolean case folding.
+Enviable 1.7 adds support for `timeout` conversion on Elixir 1.17 or later.
 
 ## Usage
 
