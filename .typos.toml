@@ -1,0 +1,6 @@
+[default]
+extend-ignore-re = ["b0ba", "B0BA", "b0Ba"]
+
+[default.extend-identifiers]
+
+[default.extend-words]

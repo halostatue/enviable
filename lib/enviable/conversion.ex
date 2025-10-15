@@ -3,7 +3,8 @@ defmodule Enviable.Conversion do
   All supported conversions and options for those conversions.
   """
 
-  alias Enviable.Conversion.Config, as: ECC
+  alias Enviable.Conversion.Config
+  alias Enviable.Conversion.TimeoutParser, warn: false
 
   atom_exhaustion =
     "[Preventing atom exhaustion](https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion)"
@@ -13,10 +14,13 @@ defmodule Enviable.Conversion do
 
   - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as a lookup
     table, if present. Any value not found will result in an exception.
+
   - `:default`: The `t:atom/0` or `t:binary/0` value representing the atom value to use if
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
+
   - `:downcase`: See `t:opt_downcase/0`.
+
   - `:upcase`: See `t:opt_upcase/0`.
   """
 
@@ -69,20 +73,19 @@ defmodule Enviable.Conversion do
     config :enviable, :boolean_downcase, :ascii
     ```
 
-    > In the next major version of Enviable, the default `:downcase` value will be
-    > changing to `:default`.
-
   - `:truthy`, `:falsy`: Only one of `:truthy` or `:falsy` may be specified. It must be
     a list of `t:binary/0` values. If neither is specified, the default is `truthy: ~w[1
     true]`.
 
-    - `:truthy`: if the value to convert is in this list, the result will be `true`
+    - `:truthy`: if the value to convert is in this list, the result is `true`
 
-    - `:falsy`: if the value to convert is in this list, the result will be `false`
+    - `:falsy`: if the value to convert is in this list, the result is `false`
 
+  > #### Default Change {: .info}
   >
-  > In a future version of Enviable, the default value of `:downcase` for boolean
-  > conversions will change from `false` to `true`.
+  > In the next major version of Enviable, the fallback default `:downcase` value is
+  > changing to `:default` instead of `false` as it should not matter whether the
+  > matched value is `true`, `TRUE`, or `True` for boolean tests.
   """
   @typedoc since: "1.0.0"
   @type convert_boolean :: :boolean
@@ -125,8 +128,8 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, either as `t:float/0`, `t:integer/0` (which will be
-    converted to float), or `t:binary/0` (which must parse cleanly as float).
+  - `:default`: The default value, either as `t:float/0`, `t:integer/0` (converted to
+    float), or `t:binary/0` (which must parse cleanly as float).
   """
   @typedoc since: "1.1.0"
   @type convert_float :: :float
@@ -151,10 +154,10 @@ defmodule Enviable.Conversion do
   - `:default`: The default value, which may be any valid JSON type.
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
     export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
-    a `t:mfa/0`, the variable value will be passed as the first parameter.
+    a `t:mfa/0`, the variable value is passed as the first parameter.
 
-    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
-    considered successful. Any other result will be treated as failure.
+    If the engine produces `{:ok, json_value}` or an expected JSON type result, it is
+    considered successful. Any other result is treated as failure.
 
     The default JSON module is selected from the `:enviable` application configuration
     option `:json_engine`. If this is unset, the default value is one of the following,
@@ -184,7 +187,7 @@ defmodule Enviable.Conversion do
   @typedoc """
   Indicates a conversion to log level `t:atom/0` for `Logger.configure/1`.
 
-  This conversion is always case-insensitive, and the result will be one of `:emergency`,
+  This conversion is always case-insensitive, and the result is one of `:emergency`,
   `:alert`, `:critical`, `:error`, `:warning`, `:warn`, `:notice`, `:info`, `:debug`,
   `:all`, or `:none`.
 
@@ -244,6 +247,47 @@ defmodule Enviable.Conversion do
   @type convert_safe_module :: :safe_module
 
   @typedoc """
+  Indicates a conversion to `t:timeout/0`.
+
+  Supported only on Elixir 1.17+.
+
+  ### Timeout Values
+
+  Timeout values are specified as non-negative integer values with optional suffixes or
+  the word `infinity`. The integer part may have underscores (`_`) separating digits like
+  Elixir itself.
+
+  If no suffix is present, the value is in milliseconds. Supported suffixes are:
+
+  - `week`, `weeks`, `w`: the number of weeks (always 7 days)
+  - `day`, `days`, `d`: the number of days (always 24 hours)
+  - `hour`, `hours`, `h`: the number of hours (always 60 minutes)
+  - `minute`, `minutes`, `m`: the number of minutes (always 60 seconds)
+  - `second`, `seconds`, `s`: the number of seconds (always 1000 milliseconds)
+  - `millisecond`, `milliseconds`, `ms`: the number of milliseconds
+
+  Suffixes may be present with or without a space (`30s` and `30 s` are the same value),
+  and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. See
+  `Kernel.to_timeout/1` for more details.
+
+  Only lowercase suffixes are supported.
+  """
+  @typedoc since: "1.7.0"
+  @type convert_timeout :: :timeout
+
+  if function_exported?(Kernel, :to_timeout, 1) do
+    @typedoc """
+    Supported default values for timeout conversions.
+    """
+    @typedoc since: "1.7.0"
+    @type timeout_default ::
+            binary()
+            | {:week | :day | :hour | :minute | :second | :millisecond, non_neg_integer()}
+            | timeout()
+            | Duration.t()
+  end
+
+  @typedoc """
   Indicates a conversion from a PEM string through `:public_key.pem_decode/1`.
 
   ### Options
@@ -268,7 +312,7 @@ defmodule Enviable.Conversion do
 
   The return types are variant on the conversion `:filter` option value:
 
-  - `true`: either an unencrypted primary key `t:binary/0`  or a list of unencrypted
+  - `true`: either an unencrypted primary key `t:binary/0` or a list of unencrypted
     certificates (`[{:Certificate, ct, :not_encrypted}]`);
   - `false`: an unmodified list of `t::public_key.pem_entry/0`.
   - `:cert`: list of unencrypted certificates (`[{:Certificate, ct, :not_encrypted}]`).
@@ -332,6 +376,9 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.3.0"
   @type convert_elixir :: :elixir
 
+  @typedoc """
+  All supported primitive conversions.
+  """
   @typedoc since: "1.1.0"
   @type primitive ::
           convert_atom
@@ -347,10 +394,13 @@ defmodule Enviable.Conversion do
           | convert_pem
           | convert_safe_atom
           | convert_safe_module
+          | convert_timeout
 
   @typedoc """
-  Decodes the value from a base 16 encoded string. If a secondary type is provided,
-  a further conversion pass is made using the secondary type.
+  Decodes the value from a base 16 encoded string.
+
+  If a secondary type is provided, a further conversion pass is made using the secondary
+  type.
 
   ### Options
 
@@ -363,8 +413,10 @@ defmodule Enviable.Conversion do
   @type encoded_base16 :: :base16 | {:base16, :string | primitive}
 
   @typedoc """
-  Decodes the value from a base 32 encoded string. If a secondary type is provided,
-  a further conversion pass is made using the secondary type.
+  Decodes the value from a base 32 encoded string.
+
+  If a secondary type is provided, a further conversion pass is made using the secondary
+  type.
 
   ### Options
 
@@ -380,6 +432,7 @@ defmodule Enviable.Conversion do
 
   @typedoc """
   Decodes the value from a base 32 hex encoded string with extended hexadecimal alphabet.
+
   If a secondary type is provided, a further conversion pass is made using the secondary
   type.
 
@@ -396,8 +449,10 @@ defmodule Enviable.Conversion do
   @type encoded_hex32 :: :hex32 | {:hex32, :string | primitive}
 
   @typedoc """
-  Decodes the value from a base 64 encoded string. If a secondary type is provided,
-  a further conversion pass is made using the secondary type.
+  Decodes the value from a base 64 encoded string.
+
+  If a secondary type is provided, a further conversion pass is made using the secondary
+  type.
 
   ### Options
 
@@ -412,8 +467,10 @@ defmodule Enviable.Conversion do
   @type encoded_base64 :: :base64 | :url_base64 | {:base64 | :url_base64, :string | primitive}
 
   @typedoc """
-  Decodes the value from a string as a delimiter-separated list. If a secondary type is
-  provided, a further conversion pass is made using the secondary type.
+  Decodes the value from a string as a delimiter-separated list.
+
+  If a secondary type is provided, a further conversion pass is made using the secondary
+  type.
 
   ### Options
 
@@ -437,9 +494,15 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.4.0"
   @type encoded_list :: :list | {:list, :string | primitive}
 
+  @typedoc """
+  All supported encoded conversions.
+  """
   @typedoc since: "1.1.0"
   @type encoded :: encoded_base16 | encoded_base32 | encoded_hex32 | encoded_base64 | encoded_list
 
+  @typedoc """
+  All supported conversions.
+  """
   @typedoc since: "1.1.0"
   @type conversion :: primitive | encoded
 
@@ -485,7 +548,7 @@ defmodule Enviable.Conversion do
   end
 
   def convert_as(value, varname, type, options) do
-    case ECC.parse(type, options) do
+    case Config.parse(type, options) do
       {:ok, config} ->
         value = casefold(value, config[:casefold])
 
@@ -626,6 +689,15 @@ defmodule Enviable.Conversion do
 
       _ ->
         :error
+    end
+  end
+
+  if function_exported?(Kernel, :to_timeout, 1) do
+    defp convert_to(:timeout, value, _config) when is_binary(value) do
+      case TimeoutParser.parse(value) do
+        {:ok, value} -> {:ok, to_timeout(value)}
+        _ -> :error
+      end
     end
   end
 

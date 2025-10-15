@@ -3,6 +3,8 @@ defmodule Enviable.Conversion.Config do
 
   @moduledoc false
 
+  alias Enviable.Conversion.TimeoutParser, warn: false
+
   @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, false)
 
   default_engine =
@@ -66,6 +68,15 @@ defmodule Enviable.Conversion.Config do
 
         _ ->
           {:error, "invalid decimal `default` value"}
+      end
+    end
+  end
+
+  if function_exported?(Kernel, :to_timeout, 1) do
+    def parse(:timeout, opts) do
+      case Keyword.fetch(opts, :default) do
+        :error -> {:ok, %{default: :infinity}}
+        {:ok, value} -> parse_timeout_default(value)
       end
     end
   end
@@ -408,5 +419,27 @@ defmodule Enviable.Conversion.Config do
       {_, {:ok, _}} ->
         {:error, "invalid `upcase` value"}
     end
+  end
+
+  if function_exported?(Kernel, :to_timeout, 1) do
+    defp parse_timeout_default(:infinity), do: {:ok, %{default: :infinity}}
+    defp parse_timeout_default(value) when is_struct(value, Duration), do: {:ok, %{default: to_timeout(value)}}
+    defp parse_timeout_default(value) when is_integer(value) and value >= 0, do: {:ok, %{default: to_timeout(value)}}
+
+    defp parse_timeout_default(value) when is_list(value) do
+      case Keyword.validate(value, [:week, :day, :hour, :minute, :second, :millisecond]) do
+        {:ok, _} -> {:ok, %{default: to_timeout(value)}}
+        _ -> {:error, "invalid timeout `default` value"}
+      end
+    end
+
+    defp parse_timeout_default(value) when is_binary(value) do
+      case TimeoutParser.parse(value) do
+        {:ok, value} -> {:ok, %{default: to_timeout(value)}}
+        _ -> {:error, "invalid timeout `default` value"}
+      end
+    end
+
+    defp parse_timeout_default(_), do: {:error, "invalid timeout `default` value"}
   end
 end
