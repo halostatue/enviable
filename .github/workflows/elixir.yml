@@ -22,7 +22,7 @@ jobs:
       LC_CTYPE: en_US.UTF-8
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - elixir: '1.14'
