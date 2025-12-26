@@ -1,5 +1,22 @@
 # Enviable Changelog
 
+## 2.0.0 / 2025-12-26
+
+- Breaking changes:
+
+  - Enviable supports Elixir 1.17+ only.
+
+  - Deprecated functions have been removed: `get_env_boolean/2`,
+    `get_env_integer/2`, `fetch_env_boolean/2`, `fetch_env_integer/2`,
+    `fetch_env_boolean!/2`, and `fetch_env_integer!/2`
+
+  - The default value for `boolean_downcase` and `downcase` for boolean
+    conversion is `:default`. This also required changing some conversion types
+    to distinguish between boolean case conversion and atom case conversion.
+
+  - The default value for `case` on `base16`, `base32`, and `hex32` conversion
+    has changed from `:upper` to `:mixed`.
+
 ## 1.7.0 / 2025-10-15
 
 > The next major version of Enviable will support Elixir 1.17+ only.

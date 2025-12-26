@@ -1,4 +1,4 @@
-# enviable Security
+# Enviable Security
 
 ## LLM-Generated Security Report Policy
 
@@ -12,17 +12,15 @@ the previous major version ending immediately.
 
 ## Reporting a Vulnerability
 
-By preference, use the [Tidelift security contact][tidelift]. Tidelift will
-coordinate the fix and disclosure.
-
-Alternatively, Send an email to [enviable@halostatue.ca][email] with the text
-`Enviable` in the subject. Emails sent to this address should be encrypted using
-[age][age] with the following public key:
+Prefer creating a [private vulnerability report][advisory] with GitHub.
+Alternatively, send an email to [security@enviable.halostatue.ca][email] with
+the text `Enviable` in the subject. Emails sent to this address should be
+encrypted using [age][age] with the following public key:
 
 ```
 age1fc6ngxmn02m62fej5cl30lrvwmxn4k3q2atqu53aatekmnqfwumqj4g93w
 ```
 
-[tidelift]: https://tidelift.com/security
-[email]: mailto:enviable@halostatue.ca
 [age]: https://github.com/FiloSottile/age
+[email]: mailto:security@enviable.halostatue.ca
+[advisory]: https://github.com/halostatue/enviable/security/advisories/new

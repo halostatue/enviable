@@ -198,7 +198,7 @@ defmodule Enviable.ConversionTest do
     test "value compared to default truthy (1, true)" do
       assert true == convert_as("1", :boolean)
       assert true == convert_as("true", :boolean)
-      assert false == convert_as("TRUE", :boolean)
+      assert true == convert_as("TRUE", :boolean)
     end
 
     test "value with downcase" do
@@ -662,11 +662,11 @@ defmodule Enviable.ConversionTest do
       assert nil == convert_as(nil, :base32)
     end
 
-    test "value MZXW6YTBOI case :upper (default), padding false (default)" do
-      assert "foobar" == convert_as("MZXW6YTBOI======", :base32)
-      assert "foobar" == convert_as("MZXW6YTBOI", :base32)
-      assert_conversion_error("MZXw6ytboi======", :base32)
-      assert_conversion_error("MZXw6ytboi", :base32)
+    test "value MZXW6YTBOI case :upper, padding false (default)" do
+      assert "foobar" == convert_as("MZXW6YTBOI======", :base32, case: :upper)
+      assert "foobar" == convert_as("MZXW6YTBOI", :base32, case: :upper)
+      assert_conversion_error("MZXw6ytboi======", :base32, case: :upper)
+      assert_conversion_error("MZXw6ytboi", :base32, case: :upper)
     end
 
     test "value mzxw6ytboi case :lower, padding false (default)" do
@@ -676,11 +676,11 @@ defmodule Enviable.ConversionTest do
       assert_conversion_error("MZXW6YTBOI", :base32, case: :lower)
     end
 
-    test "value MZXw6ytboi case :mixed, padding false (default)" do
-      assert "foobar" == convert_as("mzxw6ytboi======", :base32, case: :mixed)
-      assert "foobar" == convert_as("mzxw6ytboi", :base32, case: :mixed)
-      assert "foobar" == convert_as("mzxw6YTBOI======", :base32, case: :mixed)
-      assert "foobar" == convert_as("mzxw6YTBOI", :base32, case: :mixed)
+    test "value MZXw6ytboi case :mixed (default), padding false (default)" do
+      assert "foobar" == convert_as("mzxw6ytboi======", :base32)
+      assert "foobar" == convert_as("mzxw6ytboi", :base32)
+      assert "foobar" == convert_as("mzxw6YTBOI======", :base32)
+      assert "foobar" == convert_as("mzxw6YTBOI", :base32)
     end
 
     test "value MZXW6YTBOI case :upper (default), padding true" do
@@ -702,16 +702,15 @@ defmodule Enviable.ConversionTest do
   end
 
   describe "conversion: hex32" do
-    # .{"foobar", "CPNMUOJ1E8======"}
     test "value nil" do
       assert nil == convert_as(nil, :hex32)
     end
 
     test "value CPNMUOJ1E8 case :upper (default), padding false (default)" do
-      assert "foobar" == convert_as("CPNMUOJ1E8======", :hex32)
-      assert "foobar" == convert_as("CPNMUOJ1E8", :hex32)
-      assert_conversion_error("CPNmuoj1e8======", :hex32)
-      assert_conversion_error("CPNmuoj1e8", :hex32)
+      assert "foobar" == convert_as("CPNMUOJ1E8======", :hex32, case: :upper)
+      assert "foobar" == convert_as("CPNMUOJ1E8", :hex32, case: :upper)
+      assert_conversion_error("CPNmuoj1e8======", :hex32, case: :upper)
+      assert_conversion_error("CPNmuoj1e8", :hex32, case: :upper)
     end
 
     test "value cpnmuoj1e8 case :lower, padding false (default)" do
@@ -721,11 +720,11 @@ defmodule Enviable.ConversionTest do
       assert_conversion_error("CPNMUOJ1E8", :hex32, case: :lower)
     end
 
-    test "value CPNMUOJ1E8 case :mixed, padding false (default)" do
-      assert "foobar" == convert_as("CPNMUOJ1E8======", :hex32, case: :mixed)
-      assert "foobar" == convert_as("CPNMUOJ1E8", :hex32, case: :mixed)
-      assert "foobar" == convert_as("cpnmuoj1e8======", :hex32, case: :mixed)
-      assert "foobar" == convert_as("cpnmuoj1e8", :hex32, case: :mixed)
+    test "value CPNMUOJ1E8 case :mixed (default), padding false (default)" do
+      assert "foobar" == convert_as("CPNMUOJ1E8======", :hex32)
+      assert "foobar" == convert_as("CPNMUOJ1E8", :hex32)
+      assert "foobar" == convert_as("cpnmuoj1e8======", :hex32)
+      assert "foobar" == convert_as("cpnmuoj1e8", :hex32)
     end
 
     test "value CPNMUOJ1E8 case :upper (default), padding true" do

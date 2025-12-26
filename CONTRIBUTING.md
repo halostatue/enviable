@@ -23,7 +23,7 @@ I have several guidelines to contributing code through pull requests:
 - Proposed changes should be on a thoughtfully-named topic branch and organized
   into logical commit chunks as appropriate.
 
-- Use [Conventional Commits][conventional] with our
+- Use [Conventional Commits][conventional] with my
   [conventions](#commit-conventions).
 
 - Versions must not be updated in pull requests.
@@ -38,19 +38,14 @@ I have several guidelines to contributing code through pull requests:
 - All GitHub Actions checks marked as required must pass before a pull request
   may be accepted and merged.
 
-## LLM-Generated Contribution Policy
+## AI Contribution Policy
 
-Enviable contributions must be well understood by the submitter and that,
-especially for pull requests, the developer can attest to the
-[Developer Certificate of Origin][dco] for each pull request (see
-[LICENCE](LICENCE.md)).
+Enviable contributions must be well understood by the submitter and that the
+developer can attest to the [Developer Certificate of Origin][dco] for each pull
+request (see [LICENCE](LICENCE.md)).
 
-If LLM assistance is used in writing pull requests, this must be documented in
-the commit message and pull request. If there is evidence of LLM assistance
-without such declaration, the pull request **will be declined**.
-
-Any contribution (bug, feature request, or pull request) that uses unreviewed
-LLM output will be rejected.
+Any contribution (bug, feature request, or pull request) that uses undeclared AI
+output will be rejected.
 
 ### Commit Conventions
 

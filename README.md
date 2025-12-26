@@ -9,7 +9,8 @@ application model. It works well with configuration environment loaders like
 [Dotenvy][dotenvy] or [Nvir][nvir] and provides robust value conversion like
 [jetenv][jetenv].
 
-Enviable 1.7 adds support for `timeout` conversion on Elixir 1.17 or later.
+Enviable 2.0 removes deprecated functions and changes defaults as previously
+documented. Elixir 1.17 or later is required.
 
 ## Usage
 
@@ -35,7 +36,7 @@ config :my_app,
 > When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1`
 > is **required**, as Enviable works with the system environment variable table.
 > Future versions of Enviable may offer ways to work with the default Dotenvy
-> side effect.
+> behaviour.
 
 ## Installation
 
@@ -45,7 +46,7 @@ Enviable can be installed by adding `enviable` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:enviable, "~> 1.3"}
+    {:enviable, "~> 2.0"}
   ]
 end
 ```

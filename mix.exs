@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "1.7.0"
+  @version "2.0.0"
 
   def project do
     [
@@ -12,17 +12,12 @@ defmodule Enviable.MixProject do
       version: @version,
       source_url: @project_url,
       name: "Enviable",
-      elixir: "~> 1.14",
+      elixir: "~> 1.17",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
       docs: docs(),
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.github": :test,
-        "coveralls.html": :test
-      ],
       test_coverage: test_coverage(),
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
@@ -35,6 +30,16 @@ defmodule Enviable.MixProject do
 
   def application do
     [extra_applications: [:logger, :public_key]]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.github": :test,
+        "coveralls.html": :test
+      ]
+    ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
