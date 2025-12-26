@@ -34,18 +34,17 @@ defmodule Enviable do
 
   > #### Info {: .info}
   >
-  > When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1`
-  > is **required**, as Enviable works with the system environment variable table.
-  > Future versions of Enviable may offer ways to work with the default Dotenvy
-  > side effect.
+  > When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1` is
+  > **required**, as Enviable works with the system environment variable table. Future
+  > versions of Enviable may offer ways to work with the default Dotenvy behaviour.
 
   ### Configuration
 
   Envible has two compile-time options.
 
-  - `:boolean_downcase`: Sets the default value for case-folding boolean conversions.
-    Can be set to `:default`, `:ascii`, `:greek`, or `:turkic`. The boolean value `true`
-    will be treated as `:default`.
+  - `:boolean_downcase`: Sets the default value for case-folding boolean conversions. Can
+    be set to `:default`, `:ascii`, `:greek`, or `:turkic`. The boolean value `true` will
+    be treated as `:default`.
 
     ```elixir
     config :enviable, :boolean_downcase, true
@@ -53,15 +52,7 @@ defmodule Enviable do
     config :enviable, :boolean_downcase, :ascii
     ```
 
-    If unspecified, defaults to `false`.
-
-    > The next major version of Enviable will change this to `:default`, as it should not
-
-    > #### Default Change {: .info}
-    >
-    > In the next major version of Enviable, the fallback default `:downcase` value is
-    > changing to `:default` instead of `false` as it should not matter whether the
-    > matched value is `true`, `TRUE`, or `True` for boolean tests.
+    If unspecified, the value is `:default`.
 
   - `:json_engine`: The default JSON engine to use for JSON conversions. This may be
     provided as a `t:module/0` (which must export `decode/1`) or a `t:mfa/0` tuple. When
@@ -70,9 +61,9 @@ defmodule Enviable do
     If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
     considered successful. Any other result will be treated as failure.
 
-    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
-    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
-    the default engine.
+    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
+    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
+    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine.
 
     ```elixir
     config :enviable, :json_engine, :thoas
@@ -117,30 +108,48 @@ defmodule Enviable do
   Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `get_env_as_atom/2`)
+
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `get_env_as_boolean/2`)
+
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `get_env_as_charlist/2`)
+
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `get_env_as_decimal/2`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `get_env_as_elixir/1`)
+
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `get_env_as_erlang/1`)
+
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `get_env_as_float/2`)
+
   - `:integer` (`t:Enviable.Conversion.convert_integer/0`, `get_env_as_integer/2`)
+
   - `:json` (`t:Enviable.Conversion.convert_json/0`, `get_env_as_json/2`)
+
   - `:log_level` (`t:Enviable.Conversion.convert_log_level/0`, `get_env_as_log_level/2`)
+
   - `:module` (`t:Enviable.Conversion.convert_module/0`, `get_env_as_module/2`)
+
   - `:pem` (`t:Enviable.Conversion.convert_pem/0`, `get_env_as_pem/2`)
+
   - `:safe_atom` (`t:Enviable.Conversion.convert_safe_atom/0`, `get_env_as_safe_atom/2`)
+
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `get_env_as_safe_module/2`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `get_env_as_timeout/2`),
     supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
   - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `get_env_as_base16/2`)
+
   - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `get_env_as_base32/2`)
+
   - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
     `get_env_as_base64/2`, `get_env_as_url_base64/2`)
+
   - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `get_env_as_hex32/2`)
+
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `get_env_as_list/2`)
 
   See `Enviable.Conversion` for supported type conversions and options.
@@ -216,7 +225,7 @@ defmodule Enviable do
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
-  @spec get_env_as(String.t(), Conversion.conversion(), keyword) :: nil | term()
+  @spec get_env_as(String.t(), Conversion.conversion(), keyword()) :: nil | term()
   def get_env_as(varname, type, opts \\ []) do
     varname
     |> get_env()
@@ -231,11 +240,14 @@ defmodule Enviable do
 
   - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
     a lookup table, if present. Any value not found will result in an exception.
+
   - `:default`: The `t:atom/0` or `t:binary/0` value representing the atom value to use if
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
-  - `:downcase`: See `t:Enviable.Conversion.opt_downcase/0`.
-  - `:upcase`: See `t:Enviable.Conversion.opt_upcase/0`.
+
+  - `:downcase`: See `t:Enviable.Conversion.opt_atom_downcase/0`.
+
+  - `:upcase`: See `t:Enviable.Conversion.opt_atom_upcase/0`.
 
   A shorthand for the `default` option may be provided as a `t:atom/0` value.
   """
@@ -278,7 +290,7 @@ defmodule Enviable do
           | [
               {:allowed, list(atom())}
               | {:default, atom() | binary()}
-              | Conversion.opt_downcase()
+              | Conversion.opt_atom_downcase()
             ]
         ) :: nil | atom()
   def get_env_as_atom(varname, opts \\ [])
@@ -328,7 +340,7 @@ defmodule Enviable do
           | [
               {:allowed, list(atom())}
               | {:default, atom() | binary()}
-              | Conversion.opt_downcase()
+              | Conversion.opt_atom_downcase()
             ]
         ) :: nil | atom()
   def get_env_as_safe_atom(varname, opts \\ [])
@@ -361,8 +373,8 @@ defmodule Enviable do
     environment variable matches these values, `false` will be returned; other values will
     result in `true`. Mutually exclusive with `truthy`.
 
-  - `:downcase`: either `false` (the default), `true`, or the mode parameter for
-    `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
+  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
+    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
 
     The default `:downcase` value for boolean conversions can be changed at compile time
     through application configuration:
@@ -372,9 +384,6 @@ defmodule Enviable do
     config :enviable, :boolean_downcase, :default
     config :enviable, :boolean_downcase, :ascii
     ```
-
-    > In the next major version of Enviable, the default `:downcase` value will be
-    > changing to `:default`.
 
   A shorthand value for the `default` option may be provided as a `t:boolean/0` value.
 
@@ -404,15 +413,15 @@ defmodule Enviable do
 
   iex> Enviable.put_env("FLAG", "OUI")
   iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"])
-  false
-  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"], downcase: true)
   true
+  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
+  false
 
   iex> Enviable.put_env("FLAG", "NON")
   iex> Enviable.get_env_as_boolean("FLAG", falsy: ["non"])
-  true
-  iex> Enviable.get_env_as_boolean("FLAG", falsy: ["non"], downcase: true)
   false
+  iex> Enviable.get_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
+  true
 
   iex> Enviable.get_env_as_boolean("FLAG", default: nil)
   ** (ArgumentError) could not convert environment variable "FLAG" to type boolean: non-boolean `default` value
@@ -431,7 +440,7 @@ defmodule Enviable do
           boolean()
           | [
               {:default, boolean()}
-              | Conversion.opt_downcase()
+              | Conversion.opt_bool_downcase()
               | {:truthy | :falsy, list(binary())}
             ]
         ) :: boolean()
@@ -489,6 +498,7 @@ defmodule Enviable do
 
   - `:base`: The base (`2..36`) for integer conversion. Defaults to base `10` like
     `String.to_integer/2`.
+
   - `:default`: the default value, which must be either a binary string value or an
     integer. If provided as a binary, this will be interpreted according to the `base`
     option provided.
@@ -612,6 +622,7 @@ defmodule Enviable do
   ### Options
 
   - `:default`: The default value, which may be any valid JSON type.
+
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
     export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
     a `t:mfa/0`, the variable value will be passed as the first parameter.
@@ -619,10 +630,11 @@ defmodule Enviable do
     If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
     considered successful. Any other result will be treated as failure.
 
-    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
-    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
-    the default engine. This choice may be overridden with application configuration, as
-    this example shows using [Thoas][thoas].
+    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
+    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
+    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
+    be overridden with application configuration, as this example shows using
+    [Thoas][thoas].
 
     ```elixir
     import Config
@@ -673,6 +685,7 @@ defmodule Enviable do
 
   - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
     a lookup table, if present. Any value not found will result in an exception.
+
   - `:default`: The `t:module/0` or `t:binary/0` value representing the atom value to use
     if the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
@@ -821,10 +834,13 @@ defmodule Enviable do
 
     - `false`: the list is returned without processing, suitable for further processing
       with `:public_key.pem_entry_decode/2`.
+
     - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
       `:Certificate` records, or an empty list.
+
     - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
       exception if none are found.
+
     - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
       exception if one is not found.
 
@@ -855,8 +871,8 @@ defmodule Enviable do
   > #### Untrusted Input {: .error}
   >
   > This function parses (with `:erl_scan.string/1`) and evaluates (with
-  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the
-  > context of your application. Do not use this with untrusted input.
+  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the context of
+  > your application. Do not use this with untrusted input.
 
   ### Examples
 
@@ -910,18 +926,15 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default value is `:mixed`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -944,6 +957,7 @@ defmodule Enviable do
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
+          | {atom(), term()}
         ]) :: nil | term()
   def get_env_as_base16(varname, opts \\ []) do
     {type, opts} =
@@ -961,18 +975,15 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
@@ -999,6 +1010,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: nil | term()
   def get_env_as_base32(varname, opts \\ []) do
     {type, opts} =
@@ -1016,21 +1028,18 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
-
-  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
-    is `false` (the opposite of `Base.hex_decode32/2`).
+  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default is
+    `false` (the opposite of `Base.hex_decode32/2`).
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -1054,6 +1063,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: nil | term()
   def get_env_as_hex32(varname, opts \\ []) do
     {type, opts} =
@@ -1071,13 +1081,16 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
     the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -1101,8 +1114,9 @@ defmodule Enviable do
   @spec get_env_as_base64(String.t(), [
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
+          | {:ignore_whitespace, boolean()}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: nil | term()
   def get_env_as_base64(varname, opts \\ []) do
     {type, opts} =
@@ -1120,13 +1134,16 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
     the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -1150,8 +1167,9 @@ defmodule Enviable do
   @spec get_env_as_url_base64(String.t(), [
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
+          | {:ignore_whitespace, boolean()}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: nil | term()
   def get_env_as_url_base64(varname, opts \\ []) do
     {type, opts} =
@@ -1168,22 +1186,27 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Each entry must conform to the permitted
     type provided in `:as`.
+
   - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
     by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
     a regular expression). Defaults to `","`.
+
   - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
     `:infinity`). Passed to `String.split/3`.
+
   - `:trim`: A boolean option whether empty entries should be omitted.
 
   When the pattern is a regular expression, `Regex.split/3` options are also supported:
 
   - `:on`: specifies which captures to split the string on, and in what order. Defaults to
     :first which means captures inside the regex do not affect the splitting process.
+
   - `:include_captures`: when true, includes in the result the matches of the regular
     expression. The matches are not counted towards the maximum number of parts if
     combined with the `:parts` option. Defaults to `false`.
@@ -1216,6 +1239,7 @@ defmodule Enviable do
           | {:trim, boolean()}
           | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
           | {:include_captures, boolean()}
+          | {atom(), term()}
         ]) :: nil | list()
   def get_env_as_list(varname, opts \\ []) do
     {type, opts} =
@@ -1228,36 +1252,53 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable converted to the target `type` as `{:ok,
-  term()}` or `:error` if the variable is unset.
+  Returns the value of an environment variable converted to the target `type` as
+  `{:ok, term()}` or `:error` if the variable is unset.
 
   Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom/2`)
+
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean/2`)
+
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `fetch_env_as_charlist/1`)
+
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal/1`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir/1`)
+
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang/1`)
+
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `fetch_env_as_float/1`)
+
   - `:integer` (`t:Enviable.Conversion.convert_integer/0`, `fetch_env_as_integer/2`)
+
   - `:json` (`t:Enviable.Conversion.convert_json/0`, `fetch_env_as_json/2`)
+
   - `:log_level` (`t:Enviable.Conversion.convert_log_level/0`, `fetch_env_as_log_level/1`)
+
   - `:module` (`t:Enviable.Conversion.convert_module/0`, `fetch_env_as_module/2`)
+
   - `:pem` (`t:Enviable.Conversion.convert_pem/0`, `fetch_env_as_pem/2`)
+
   - `:safe_atom` (`t:Enviable.Conversion.convert_safe_atom/0`, `fetch_env_as_safe_atom/2`)
+
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module/2`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout/1`),
     supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
   - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `fetch_env_as_base16/2`)
+
   - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `fetch_env_as_base32/2`)
+
   - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
     `fetch_env_as_base64/2`, `fetch_env_as_url_base64/2`)
   - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `fetch_env_as_hex32/2`)
+
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list/2`)
 
   See `Enviable.Conversion` for supported type conversions and options, but note that any
@@ -1310,7 +1351,7 @@ defmodule Enviable do
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
-  @spec fetch_env_as(String.t(), Conversion.conversion(), keyword) :: {:ok, term()} | :error
+  @spec fetch_env_as(String.t(), Conversion.conversion(), keyword()) :: {:ok, term()} | :error
   def fetch_env_as(varname, type, opts \\ []) do
     case fetch_env(varname) do
       :error -> :error
@@ -1323,8 +1364,10 @@ defmodule Enviable do
 
   - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
     a lookup table, if present. Any value not found will result in an exception.
-  - `:downcase`: See `t:Enviable.Conversion.opt_downcase/0`.
-  - `:upcase`: See `t:Enviable.Conversion.opt_upcase/0`.
+
+  - `:downcase`: See `t:Enviable.Conversion.opt_atom_downcase/0`.
+
+  - `:upcase`: See `t:Enviable.Conversion.opt_atom_upcase/0`.
   """
 
   @doc """
@@ -1352,7 +1395,8 @@ defmodule Enviable do
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_downcase()]) :: {:ok, atom()} | :error
+  @spec fetch_env_as_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
+          {:ok, atom()} | :error
   def fetch_env_as_atom(varname, opts \\ []), do: fetch_env_as(varname, :atom, opts)
 
   @doc """
@@ -1381,7 +1425,7 @@ defmodule Enviable do
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_downcase()]) ::
+  @spec fetch_env_as_safe_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
           {:ok, atom()} | :error
   def fetch_env_as_safe_atom(varname, opts \\ []), do: fetch_env_as(varname, :safe_atom, opts)
 
@@ -1395,16 +1439,16 @@ defmodule Enviable do
 
   ### Options
 
-  - `:truthy`: a list of string values to be compared for truth values. If the value of the
-    environment variable matches these values, `true` will be returned; other values will
-    result in `false`. Mutually exclusive with `falsy`.
+  - `:truthy`: a list of string values to be compared for truth values. If the value of
+    the environment variable matches these values, `true` will be returned; other values
+    will result in `false`. Mutually exclusive with `falsy`.
 
   - `:falsy`: a list of string values to be compared for false values. If the value of the
     environment variable matches these values, `false` will be returned; other values will
     result in `true`. Mutually exclusive with `truthy`.
 
-  - `:downcase`: either `false` (the default), `true`, or the mode parameter for
-    `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
+  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
+    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
 
     The default `:downcase` value for boolean conversions can be changed at compile time
     through application configuration:
@@ -1414,9 +1458,6 @@ defmodule Enviable do
     config :enviable, :boolean_downcase, :default
     config :enviable, :boolean_downcase, :ascii
     ```
-
-    > In the next major version of Enviable, the default `:downcase` value will be
-    > changing to `:default`.
 
   ### Examples
 
@@ -1438,30 +1479,30 @@ defmodule Enviable do
 
   iex> Enviable.put_env("FLAG", "OUI")
   iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"])
-  {:ok, false}
+  {:ok, true}
 
   iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"], downcase: true)
-  {:ok, true}
+  iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
+  {:ok, false}
 
   iex> Enviable.put_env("FLAG", "NON")
   iex> Enviable.fetch_env_as_boolean("FLAG", falsy: ["non"])
-  {:ok, true}
+  {:ok, false}
 
   iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean("FLAG", falsy: ["non"], downcase: true)
-  {:ok, false}
+  iex> Enviable.fetch_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
+  {:ok, true}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_boolean(String.t(), [Conversion.opt_downcase() | {:truthy | :falsy, list(binary())}]) ::
+  @spec fetch_env_as_boolean(String.t(), [Conversion.opt_bool_downcase() | {:truthy | :falsy, list(binary())}]) ::
           {:ok, boolean} | :error
   def fetch_env_as_boolean(varname, opts \\ []), do: fetch_env_as(varname, :boolean, opts)
 
   @doc """
-  Returns the value of an environment variable converted to a `t:charlist/0` as `{:ok,
-  charlist()}` or `:error` if the variable is unset.
+  Returns the value of an environment variable converted to a `t:charlist/0` as
+  `{:ok, charlist()}` or `:error` if the variable is unset.
 
   ### Examples
 
@@ -1515,8 +1556,8 @@ defmodule Enviable do
   def fetch_env_as_integer(varname, opts \\ []), do: fetch_env_as(varname, :integer, opts)
 
   @doc """
-  Returns the value of an environment variable converted to a `t:float/0` value as `{:ok,
-  float()}` or `:error` if the variable is unset.
+  Returns the value of an environment variable converted to a `t:float/0` value as
+  `{:ok, float()}` or `:error` if the variable is unset.
 
   ### Examples
 
@@ -1552,10 +1593,11 @@ defmodule Enviable do
     If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
     considered successful. Any other result will be treated as failure.
 
-    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
-    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
-    the default engine. This choice may be overridden with application configuration, as
-    this example shows using [Thoas][thoas].
+    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
+    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
+    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
+    be overridden with application configuration, as this example shows using
+    [Thoas][thoas].
 
     ```elixir
     import Config
@@ -1596,8 +1638,8 @@ defmodule Enviable do
   """
 
   @doc """
-  Returns the value of an environment variable converted to `t:module/0` as `{:ok,
-  module()}` or `:error` if the variable is unset.
+  Returns the value of an environment variable converted to `t:module/0` as
+  `{:ok, module()}` or `:error` if the variable is unset.
 
   > #### Untrusted Input {: .warning}
   >
@@ -1624,8 +1666,8 @@ defmodule Enviable do
   def fetch_env_as_module(varname, opts \\ []), do: fetch_env_as(varname, :module, opts)
 
   @doc """
-  Returns the value of an environment variable converted to `t:module/0` as `{:ok,
-  module()}` or `:error` if the variable is unset.  The resulting `t:module/0` must
+  Returns the value of an environment variable converted to `t:module/0` as
+  `{:ok, module()}` or `:error` if the variable is unset.  The resulting `t:module/0` must
   already exist.
 
   > #### Untrusted Input {: .warning}
@@ -1684,10 +1726,13 @@ defmodule Enviable do
 
     - `false`: the list is returned without processing, suitable for further processing
       with `:public_key.pem_entry_decode/2`.
+
     - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
       `:Certificate` records, or an empty list.
+
     - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
       exception if none are found.
+
     - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
       exception if one is not found.
 
@@ -1718,8 +1763,8 @@ defmodule Enviable do
   > #### Untrusted Input {: .error}
   >
   > This function parses (with `:erl_scan.string/1`) and evaluates (with
-  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the
-  > context of your application. Do not use this with untrusted input.
+  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the context of
+  > your application. Do not use this with untrusted input.
 
   ### Examples
 
@@ -1768,23 +1813,20 @@ defmodule Enviable do
   def fetch_env_as_elixir(varname), do: fetch_env_as(varname, :elixir, [])
 
   @doc """
-  Returns the value of an environment variable decoded from a base 16 string as `{:ok,
-  term()}` or `:error` if the environment variable is not set.
+  Returns the value of an environment variable decoded from a base 16 string as
+  `{:ok, term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
   - `:as`: The type of value that the encoded string is to be parsed as once decoded.
     Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -1807,6 +1849,7 @@ defmodule Enviable do
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
+          | {atom(), term()}
         ]) :: :error | {:ok, term()}
   def fetch_env_as_base16(varname, opts \\ []) do
     {type, opts} =
@@ -1819,23 +1862,20 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded from a base 32 string as `{:ok,
-  term()}` or `:error` if the environment variable is not set.
+  Returns the value of an environment variable decoded from a base 32 string as
+  `{:ok, term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
@@ -1862,6 +1902,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: :error | {:ok, term()}
   def fetch_env_as_base32(varname, opts \\ []) do
     {type, opts} =
@@ -1879,18 +1920,15 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
     is `false` (the opposite of `Base.hex_decode32/2`).
@@ -1917,6 +1955,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: :error | {:ok, term()}
   def fetch_env_as_hex32(varname, opts \\ []) do
     {type, opts} =
@@ -1929,18 +1968,21 @@ defmodule Enviable do
   end
 
   @doc """
-  Returns the value of an environment variable decoded from a base 64 string as `{:ok,
-  term()}` or `:error` if the environment variable is not set.
+  Returns the value of an environment variable decoded from a base 64 string as
+  `{:ok, term()}` or `:error` if the environment variable is not set.
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
+
   - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
     the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -1964,8 +2006,9 @@ defmodule Enviable do
   @spec fetch_env_as_base64(String.t(), [
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
+          | {:ignore_whitespace, boolean()}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: :error | {:ok, term()}
   def fetch_env_as_base64(varname, opts \\ []) do
     {type, opts} =
@@ -1983,13 +2026,16 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
+    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -2013,8 +2059,9 @@ defmodule Enviable do
   @spec fetch_env_as_url_base64(String.t(), [
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
+          | {:ignore_whitespace, boolean()}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: :error | {:ok, term()}
   def fetch_env_as_url_base64(varname, opts \\ []) do
     {type, opts} =
@@ -2031,22 +2078,27 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Each entry must conform to the permitted
     type provided in `:as`.
+
   - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
     by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
     a regular expression). Defaults to `","`.
+
   - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
     `:infinity`). Passed to `String.split/3`.
+
   - `:trim`: A boolean option whether empty entries should be omitted.
 
   When the pattern is a regular expression, `Regex.split/3` options are also supported:
 
   - `:on`: specifies which captures to split the string on, and in what order. Defaults to
-    :first which means captures inside the regex do not affect the splitting process.
+    `:first` which means captures inside the regex do not affect the splitting process.
+
   - `:include_captures`: when true, includes in the result the matches of the regular
     expression. The matches are not counted towards the maximum number of parts if
     combined with the `:parts` option. Defaults to `false`.
@@ -2079,6 +2131,7 @@ defmodule Enviable do
           | {:trim, boolean()}
           | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
           | {:include_captures, boolean()}
+          | {atom(), term()}
         ]) :: :error | {:ok, list()}
   def fetch_env_as_list(varname, opts \\ []) do
     {type, opts} =
@@ -2097,32 +2150,49 @@ defmodule Enviable do
   Supported primitive conversions are:
 
   - `:atom` (`t:Enviable.Conversion.convert_atom/0`, `fetch_env_as_atom!/2`)
+
   - `:boolean` (`t:Enviable.Conversion.convert_boolean/0`, `fetch_env_as_boolean!/2`)
+
   - `:charlist` (`t:Enviable.Conversion.convert_charlist/0`, `fetch_env_as_charlist!/2`)
+
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal!/2`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir!/1`)
+
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang!/1`)
+
   - `:float` (`t:Enviable.Conversion.convert_float/0`, `fetch_env_as_float!/2`)
+
   - `:integer` (`t:Enviable.Conversion.convert_integer/0`, `fetch_env_as_integer!/2`)
+
   - `:json` (`t:Enviable.Conversion.convert_json/0`, `fetch_env_as_json!/2`)
+
   - `:log_level` (`t:Enviable.Conversion.convert_log_level/0`,
     `fetch_env_as_log_level!/2`)
+
   - `:module` (`t:Enviable.Conversion.convert_module/0`, `fetch_env_as_module!/2`)
+
   - `:pem` (`t:Enviable.Conversion.convert_pem/0`, `fetch_env_as_pem!/2`)
+
   - `:safe_atom` (`t:Enviable.Conversion.convert_safe_atom/0`,
     `fetch_env_as_safe_atom!/2`)
+
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module!/2`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout!/2`),
     supported on Elixir 1.17+
 
   Supported encoded conversions are:
 
   - `:base16` (`t:Enviable.Conversion.encoded_base16/0`, `fetch_env_as_base16!/2`)
+
   - `:base32` (`t:Enviable.Conversion.encoded_base32/0`, `fetch_env_as_base32!/2`)
+
   - `:base64`, `:url_base64` (`t:Enviable.Conversion.encoded_base64/0`,
     `fetch_env_as_base64!/2`, `fetch_env_as_url_base64!/2`)
   - `:hex32` (`t:Enviable.Conversion.encoded_hex32/0`, `fetch_env_as_hex32!/2`)
+
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list!/2`)
 
   See `Enviable.Conversion` for supported type conversions and options, but note that any
@@ -2175,7 +2245,7 @@ defmodule Enviable do
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
-  @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword) :: term()
+  @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword()) :: term()
   def fetch_env_as!(varname, type, opts \\ []) do
     varname
     |> fetch_env!()
@@ -2207,7 +2277,7 @@ defmodule Enviable do
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_downcase()]) :: atom()
+  @spec fetch_env_as_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) :: atom()
   def fetch_env_as_atom!(varname, opts \\ []), do: fetch_env_as!(varname, :atom, opts)
 
   @doc """
@@ -2236,7 +2306,7 @@ defmodule Enviable do
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_downcase()]) ::
+  @spec fetch_env_as_safe_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
           atom()
   def fetch_env_as_safe_atom!(varname, opts \\ []), do: fetch_env_as!(varname, :safe_atom, opts)
 
@@ -2258,8 +2328,8 @@ defmodule Enviable do
     environment variable matches these values, `false` will be returned; other values will
     result in `true`. Mutually exclusive with `truthy`.
 
-  - `:downcase`: either `false` (the default), `true`, or the mode parameter for
-    `String.downcase/2` (`:default`, `:ascii`, `:greek`, or `:turkic`).
+  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
+    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
 
     The default `:downcase` value for boolean conversions can be changed at compile time
     through application configuration:
@@ -2269,9 +2339,6 @@ defmodule Enviable do
     config :enviable, :boolean_downcase, :default
     config :enviable, :boolean_downcase, :ascii
     ```
-
-    > In the next major version of Enviable, the default `:downcase` value will be
-    > changing to `:default`.
 
   ### Examples
 
@@ -2293,24 +2360,24 @@ defmodule Enviable do
 
   iex> Enviable.put_env("FLAG", "OUI")
   iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"])
-  false
+  true
 
   iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"], downcase: true)
-  true
+  iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"], downcase: false)
+  false
 
   iex> Enviable.put_env("FLAG", "NON")
   iex> Enviable.fetch_env_as_boolean!("FLAG", falsy: ["non"])
-  true
+  false
 
   iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", falsy: ["non"], downcase: true)
-  false
+  iex> Enviable.fetch_env_as_boolean!("FLAG", falsy: ["non"], downcase: false)
+  true
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_boolean!(String.t(), [Conversion.opt_downcase() | {:truthy | :falsy, list(binary())}]) ::
+  @spec fetch_env_as_boolean!(String.t(), [Conversion.opt_bool_downcase() | {:truthy | :falsy, list(binary())}]) ::
           boolean
   def fetch_env_as_boolean!(varname, opts \\ []), do: fetch_env_as!(varname, :boolean, opts)
 
@@ -2377,8 +2444,9 @@ defmodule Enviable do
 
     ### Options
 
-    - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
-      or `t:binary/0` (the latter three must convert cleanly to `t:Decimal.t/0`).
+    - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`,
+      `t:integer/0`, or `t:binary/0` (the latter three must convert cleanly to
+      `t:Decimal.t/0`).
 
     A shorthand for the `default` value may be provided as a `t:Decimal.t/0`, `t:float/0`,
     `t:integer/0`, or `t:binary/0` value.
@@ -2444,8 +2512,8 @@ defmodule Enviable do
     def get_env_as_decimal(varname, opts), do: get_env_as(varname, :decimal, opts)
 
     @doc """
-    Returns the value of an environment variable converted to a `t:Decimal.t/0` value as `{:ok,
-    Decimal.t()}` or `:error` if the variable is unset.
+    Returns the value of an environment variable converted to a `t:Decimal.t/0` value as
+    `{:ok, Decimal.t()}` or `:error` if the variable is unset.
 
     ### Examples
 
@@ -2529,10 +2597,11 @@ defmodule Enviable do
     If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
     considered successful. Any other result will be treated as failure.
 
-    The default JSON engine is `:json` if the Erlang/OTP `m::json` module is available
-    (Erlang/OTP 27+) or provided by [json_polyfill][jp]. Otherwise, [Jason][jason] is
-    the default engine. This choice may be overridden with application configuration, as
-    this example shows using [Thoas][thoas].
+    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
+    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
+    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
+    be overridden with application configuration, as this example shows using
+    [Thoas][thoas].
 
     ```elixir
     import Config
@@ -2660,10 +2729,13 @@ defmodule Enviable do
 
     - `false`: the list is returned without processing, suitable for further processing
       with `:public_key.pem_entry_decode/2`.
+
     - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
       `:Certificate` records, or an empty list.
+
     - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
       exception if none are found.
+
     - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
       exception if one is not found.
 
@@ -2749,18 +2821,15 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -2783,6 +2852,7 @@ defmodule Enviable do
           {:default, term()}
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
+          | {atom(), term()}
         ]) :: term()
   def fetch_env_as_base16!(varname, opts \\ []) do
     {type, opts} =
@@ -2800,18 +2870,15 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
-
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
@@ -2838,6 +2905,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: term()
   def fetch_env_as_base32!(varname, opts \\ []) do
     {type, opts} =
@@ -2855,21 +2923,18 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
 
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
 
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
-    > The next major version of Enviable will change this to `:mixed`, as it should not
-    > matter whether the matched value is `b0ba`, `B0BA`, or `b0Ba`.
-
-  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
-    is `false` (the opposite of `Base.hex_decode32/2`).
+  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default is
+    `false` (the opposite of `Base.hex_decode32/2`).
 
   If `:as` is provided, the options for that type may also be provided.
 
@@ -2893,6 +2958,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: term()
   def fetch_env_as_hex32!(varname, opts \\ []) do
     {type, opts} =
@@ -2910,13 +2976,16 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
+    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -2942,6 +3011,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: term()
   def fetch_env_as_base64!(varname, opts \\ []) do
     {type, opts} =
@@ -2959,13 +3029,16 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Must conform to the permitted type provided
     in `:as`.
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
+  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
+    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -2991,6 +3064,7 @@ defmodule Enviable do
           | {:as, :string | Conversion.primitive()}
           | {:case, :upper | :lower | :mixed}
           | {:padding, boolean()}
+          | {atom(), term()}
         ]) :: term()
   def fetch_env_as_url_base64!(varname, opts \\ []) do
     {type, opts} =
@@ -3007,22 +3081,27 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primit/0` value.
+  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
+    be either `:string` (the same as not providing `as: :string`) or
+    a `t:Conversion.primitive/0` value.
+
   - `:default`: The default value to be used. Each entry must conform to the permitted
     type provided in `:as`.
+
   - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
     by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
     a regular expression). Defaults to `","`.
+
   - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
     `:infinity`). Passed to `String.split/3`.
+
   - `:trim`: A boolean option whether empty entries should be omitted.
 
   When the pattern is a regular expression, `Regex.split/3` options are also supported:
 
   - `:on`: specifies which captures to split the string on, and in what order. Defaults to
     :first which means captures inside the regex do not affect the splitting process.
+
   - `:include_captures`: when true, includes in the result the matches of the regular
     expression. The matches are not counted towards the maximum number of parts if
     combined with the `:parts` option. Defaults to `false`.
@@ -3055,6 +3134,7 @@ defmodule Enviable do
           | {:trim, boolean()}
           | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
           | {:include_captures, boolean()}
+          | {atom(), term()}
         ]) :: list()
   def fetch_env_as_list!(varname, opts \\ []) do
     {type, opts} =
@@ -3066,259 +3146,137 @@ defmodule Enviable do
     fetch_env_as!(varname, type, opts)
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    timeout_values = """
-    ### Timeout Values
+  timeout_values = """
+  ### Timeout Values
 
-    Timeout values are specified as non-negative integer values with optional suffixes or
-    the word `infinity`. The integer part may have underscores (`_`) separating digits like
-    Elixir itself.
+  Timeout values are specified as non-negative integer values with optional suffixes or
+  the word `infinity`. The integer part may have underscores (`_`) separating digits like
+  Elixir itself.
 
-    If no suffix is present, the value is in milliseconds. Supported suffixes are:
+  If no suffix is present, the value is in milliseconds. Supported suffixes are:
 
-    - `week`, `weeks`, `w`: the number of weeks (always 7 days)
-    - `day`, `days`, `d`: the number of days (always 24 hours)
-    - `hour`, `hours`, `h`: the number of hours (always 60 minutes)
-    - `minute`, `minutes`, `m`: the number of minutes (always 60 seconds)
-    - `second`, `seconds`, `s`: the number of seconds (always 1000 milliseconds)
-    - `millisecond`, `milliseconds`, `ms`: the number of milliseconds
+  - `week`, `weeks`, `w`: the number of weeks (always 7 days)
 
-    Suffixes may be present with or without a space (`30s` and `30 s` are the same value),
-    and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. See
-    `Kernel.to_timeout/1` for more details.
+  - `day`, `days`, `d`: the number of days (always 24 hours)
 
-    Only lowercase suffixes are supported.
-    """
+  - `hour`, `hours`, `h`: the number of hours (always 60 minutes)
 
-    @doc """
-    Returns the value of an environment variable converted to a millisecond `t:timeout/0` or
-    a default value if the variable is unset. If no `default` is provided, `:infinity` will
-    be returned.
+  - `minute`, `minutes`, `m`: the number of minutes (always 60 seconds)
 
-    #{timeout_values}
+  - `second`, `seconds`, `s`: the number of seconds (always 1000 milliseconds)
 
-    ### Options
+  - `millisecond`, `milliseconds`, `ms`: the number of milliseconds
 
-    - `:default`: The default value. This may be a timeout value described above,
-      a `t:Duration.t/0`, a `t:timeout/0` value, or a `t:keyword/0` list where the keys may
-      be `:week`, `:day`, `:hour`, `:minute`, `:second`, or `:millisecond` as described in
-      `Kernel.to_timeout/1`.
+  Suffixes may be present with or without a space (`30s` and `30 s` are the same value),
+  and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. See
+  `Kernel.to_timeout/1` for more details.
 
-    ### Examples
+  Only lowercase suffixes are supported.
+  """
 
-    ```elixir
-    iex> Enviable.get_env_as_timeout("UNSET")
-    :infinity
+  @doc """
+  Returns the value of an environment variable converted to a millisecond `t:timeout/0` or
+  a default value if the variable is unset. If no `default` is provided, `:infinity` will
+  be returned.
 
-    iex> Enviable.get_env_as_timeout("UNSET", "30s")
-    30000
+  #{timeout_values}
 
-    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-    iex> Enviable.get_env_as_timeout("TIMEOUT")
-    30000
-    ```
-    """
-    @doc since: "1.7.0"
-    @doc group: "Conversion"
-    @spec get_env_as_timeout(
-            String.t(),
-            Conversion.timeout_default() | [{:default, Conversion.timeout_default()}]
-          ) :: timeout()
-    def get_env_as_timeout(varname, opts \\ [])
+  ### Options
 
-    def get_env_as_timeout(varname, default)
-        when (is_integer(default) and default >= 0) or default == :infinity or is_binary(default) or
-               is_struct(default, Duration),
-        do: get_env_as(varname, :timeout, default: default)
+  - `:default`: The default value. This may be a timeout value described above,
+    a `t:Duration.t/0`, a `t:timeout/0` value, or a `t:keyword/0` list where the keys may
+    be `:week`, `:day`, `:hour`, `:minute`, `:second`, or `:millisecond` as described in
+    `Kernel.to_timeout/1`.
 
-    def get_env_as_timeout(varname, []), do: get_env_as(varname, :timeout, [])
+  ### Examples
 
-    def get_env_as_timeout(varname, opts) do
-      opts =
-        case Keyword.validate(opts, [:week, :day, :hour, :minute, :second, :millisecond]) do
-          {:ok, _} -> [default: opts]
-          {:error, _} -> opts
-        end
+  ```elixir
+  iex> Enviable.get_env_as_timeout("UNSET")
+  :infinity
 
-      get_env_as(varname, :timeout, opts)
-    end
+  iex> Enviable.get_env_as_timeout("UNSET", "30s")
+  30000
 
-    @doc """
-    Returns the value of an environment variable converted to a millisecond `t:timeout/0` as
-    `{:ok, timeout()}` or `:error` if the variable is unset.
+  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+  iex> Enviable.get_env_as_timeout("TIMEOUT")
+  30000
+  ```
+  """
+  @doc since: "1.7.0"
+  @doc group: "Conversion"
+  @spec get_env_as_timeout(
+          String.t(),
+          Conversion.timeout_default() | [{:default, Conversion.timeout_default()}]
+        ) :: timeout()
+  def get_env_as_timeout(varname, opts \\ [])
 
-    #{timeout_values}
+  def get_env_as_timeout(varname, default)
+      when (is_integer(default) and default >= 0) or default == :infinity or is_binary(default) or
+             is_struct(default, Duration), do: get_env_as(varname, :timeout, default: default)
 
-    ### Examples
+  def get_env_as_timeout(varname, []), do: get_env_as(varname, :timeout, [])
 
-    ```elixir
-    iex> Enviable.fetch_env_as_timeout("UNSET")
-    :error
+  def get_env_as_timeout(varname, opts) do
+    opts =
+      case Keyword.validate(opts, [:week, :day, :hour, :minute, :second, :millisecond]) do
+        {:ok, _} -> [default: opts]
+        {:error, _} -> opts
+      end
 
-    iex> Enviable.put_env("TIMEOUT", "infinity")
-    iex> Enviable.fetch_env_as_timeout("TIMEOUT")
-    {:ok, :infinity}
-
-    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-    iex> Enviable.fetch_env_as_timeout("TIMEOUT")
-    {:ok, 30000}
-    ```
-    """
-    @doc since: "1.7.0"
-    @doc group: "Conversion"
-    @spec fetch_env_as_timeout(String.t()) :: {:ok, timeout()} | :error
-    def fetch_env_as_timeout(varname), do: fetch_env_as(varname, :timeout)
-
-    @doc """
-    Returns the value of an environment variable converted to a millisecond `t:timeout/0`
-    or raises an exception if the variable is unset.
-
-    #{timeout_values}
-
-    ### Examples
-
-    ```elixir
-    iex> Enviable.fetch_env_as_timeout!("UNSET")
-    ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
-
-    iex> Enviable.put_env("TIMEOUT", "infinity")
-    iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
-    :infinity
-
-    iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-    iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
-    30000
-    ```
-    """
-    @doc since: "1.7.0"
-    @doc group: "Conversion"
-    @spec fetch_env_as_timeout!(String.t()) :: timeout()
-    def fetch_env_as_timeout!(varname), do: fetch_env_as!(varname, :timeout)
+    get_env_as(varname, :timeout, opts)
   end
 
   @doc """
-  Returns the value of an environment variable converted to a `t:boolean/0` value.
+  Returns the value of an environment variable converted to a millisecond `t:timeout/0` as
+  `{:ok, timeout()}` or `:error` if the variable is unset.
 
-  Prefer using `get_env_as_boolean/2`.
-
-  ### Examples
-
-  ```elixir
-  iex> Enviable.get_env_boolean("UNSET")
-  false
-  ```
-  """
-  @doc deprecated: "Use get_env_as_boolean/2 or get_env_as/3 instead"
-  @doc group: "Conversion"
-  @spec get_env_boolean(String.t(), keyword) :: boolean()
-  def get_env_boolean(varname, opts \\ []), do: get_env_as(varname, :boolean, opts)
-
-  @doc """
-  Returns the value of an environment variable as `{:ok, boolean()}` value or `:error` if
-  the variable is unset.
-
-  Prefer using `fetch_env_as_boolean/2`.
+  #{timeout_values}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_boolean("UNSET")
+  iex> Enviable.fetch_env_as_timeout("UNSET")
   :error
 
-  iex> Enviable.put_env("FLAG", "1")
-  iex> Enviable.fetch_env_boolean("FLAG")
-  {:ok, true}
+  iex> Enviable.put_env("TIMEOUT", "infinity")
+  iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+  {:ok, :infinity}
+
+  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+  iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+  {:ok, 30000}
   ```
   """
-  @doc deprecated: "Use fetch_env_as_boolean/2 or fetch_env_as/3 instead"
+  @doc since: "1.7.0"
   @doc group: "Conversion"
-  @spec fetch_env_boolean(String.t(), keyword) :: {:ok, boolean()} | :error
-  def fetch_env_boolean(varname, opts \\ []), do: fetch_env_as(varname, :boolean, opts)
+  @spec fetch_env_as_timeout(String.t()) :: {:ok, timeout()} | :error
+  def fetch_env_as_timeout(varname), do: fetch_env_as(varname, :timeout)
 
   @doc """
-  Returns the value of an environment variable converted to a `t:boolean/0` value or
+  Returns the value of an environment variable converted to a millisecond `t:timeout/0` or
   raises an exception if the variable is unset.
 
-  Prefer using `fetch_env_as_boolean!/2`.
+  #{timeout_values}
+
+  ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_boolean!("UNSET")
+  iex> Enviable.fetch_env_as_timeout!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("FLAG", "1")
-  iex> Enviable.fetch_env_boolean!("FLAG")
-  true
+  iex> Enviable.put_env("TIMEOUT", "infinity")
+  iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+  :infinity
+
+  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+  iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+  30000
   ```
   """
-  @doc deprecated: "Use fetch_env_as_boolean!/2 or fetch_env_as!/3 instead"
+  @doc since: "1.7.0"
   @doc group: "Conversion"
-  @spec fetch_env_boolean!(String.t(), keyword) :: boolean()
-  def fetch_env_boolean!(varname, opts \\ []), do: fetch_env_as!(varname, :boolean, opts)
-
-  @doc """
-  Returns the value of an environment variable converted to a `t:integer/0` value or `nil`
-  if the variable is not set and a `default` is not provided.
-
-  Prefer using `get_env_as_integer/2`.
-
-  ### Examples
-
-  ```elixir
-  iex> Enviable.get_env_integer("UNSET")
-  nil
-
-  iex> Enviable.get_env_integer("PORT", default: 255)
-  255
-  ```
-  """
-  @doc deprecated: "Use get_env_as_integer/2 or get_env_as/3 instead"
-  @doc group: "Conversion"
-  @spec get_env_integer(String.t(), keyword) :: integer() | nil
-  def get_env_integer(varname, opts \\ []), do: get_env_as(varname, :integer, opts)
-
-  @doc """
-  Returns the value of an environment variable as `{:ok, t:integer/0}` or `:error` if the
-  variable is unset.
-
-  Prefer using `fetch_env_as_integer/2`.
-
-  ### Examples
-
-  ```elixir
-  iex> Enviable.fetch_env_integer("UNSET")
-  :error
-
-  iex> Enviable.put_env("PORT", "1")
-  iex> Enviable.fetch_env_integer("PORT")
-  {:ok, 1}
-  ```
-  """
-  @doc deprecated: "Use fetch_env_as_integer/2 or fetch_env_as/3 instead"
-  @doc group: "Conversion"
-  @spec fetch_env_integer(String.t(), keyword) :: {:ok, integer()} | :error
-  def fetch_env_integer(varname, opts \\ []), do: fetch_env_as(varname, :integer, opts)
-
-  @doc """
-  Returns the value of an environment variable converted to a `t:integer/0` value raises
-  an exception if the variable is unset.
-
-  Prefer using `fetch_env_as_integer!/2`.
-
-  ### Examples
-
-  ```elixir
-  iex> Enviable.fetch_env_integer!("UNSET")
-  ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
-
-  iex> Enviable.put_env("PORT", "1")
-  iex> Enviable.fetch_env_integer!("PORT")
-  1
-  ```
-  """
-  @doc deprecated: "Use fetch_env_as_integer!/2 or fetch_env_as!/3 instead"
-  @doc group: "Conversion"
-  @spec fetch_env_integer!(String.t(), keyword) :: integer()
-  def fetch_env_integer!(varname, opts \\ []), do: fetch_env_as!(varname, :integer, opts)
+  @spec fetch_env_as_timeout!(String.t()) :: timeout()
+  def fetch_env_as_timeout!(varname), do: fetch_env_as!(varname, :timeout)
 
   @doc """
   Deletes an environment variable, removing `varname` from the environment.

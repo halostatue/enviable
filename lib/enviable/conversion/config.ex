@@ -5,7 +5,7 @@ defmodule Enviable.Conversion.Config do
 
   alias Enviable.Conversion.TimeoutParser, warn: false
 
-  @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, false)
+  @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, :default)
 
   default_engine =
     cond do
@@ -72,12 +72,10 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    def parse(:timeout, opts) do
-      case Keyword.fetch(opts, :default) do
-        :error -> {:ok, %{default: :infinity}}
-        {:ok, value} -> parse_timeout_default(value)
-      end
+  def parse(:timeout, opts) do
+    case Keyword.fetch(opts, :default) do
+      :error -> {:ok, %{default: :infinity}}
+      {:ok, value} -> parse_timeout_default(value)
     end
   end
 
@@ -170,9 +168,15 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
-  defguardp is_json(value)
-            when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
-                   is_number(value)
+  if Code.ensure_loaded?(Decimal) do
+    defguardp is_json(value)
+              when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
+                     is_number(value) or is_struct(value, Decimal)
+  else
+    defguardp is_json(value)
+              when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
+                     is_number(value)
+  end
 
   defp decode_opts(opts, keys) do
     result =
@@ -187,7 +191,7 @@ defmodule Enviable.Conversion.Config do
   end
 
   defp decode_opt(opts, :case, decode_opts) do
-    case Keyword.get(opts, :case, :upper) do
+    case Keyword.get(opts, :case, :mixed) do
       value when value in [:upper, :lower, :mixed] -> {:cont, Keyword.put(decode_opts, :case, value)}
       _ -> {:halt, {:error, "invalid `case` value"}}
     end
@@ -421,25 +425,23 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    defp parse_timeout_default(:infinity), do: {:ok, %{default: :infinity}}
-    defp parse_timeout_default(value) when is_struct(value, Duration), do: {:ok, %{default: to_timeout(value)}}
-    defp parse_timeout_default(value) when is_integer(value) and value >= 0, do: {:ok, %{default: to_timeout(value)}}
+  defp parse_timeout_default(:infinity), do: {:ok, %{default: :infinity}}
+  defp parse_timeout_default(value) when is_struct(value, Duration), do: {:ok, %{default: to_timeout(value)}}
+  defp parse_timeout_default(value) when is_integer(value) and value >= 0, do: {:ok, %{default: to_timeout(value)}}
 
-    defp parse_timeout_default(value) when is_list(value) do
-      case Keyword.validate(value, [:week, :day, :hour, :minute, :second, :millisecond]) do
-        {:ok, _} -> {:ok, %{default: to_timeout(value)}}
-        _ -> {:error, "invalid timeout `default` value"}
-      end
+  defp parse_timeout_default(value) when is_list(value) do
+    case Keyword.validate(value, [:week, :day, :hour, :minute, :second, :millisecond]) do
+      {:ok, _} -> {:ok, %{default: to_timeout(value)}}
+      _ -> {:error, "invalid timeout `default` value"}
     end
-
-    defp parse_timeout_default(value) when is_binary(value) do
-      case TimeoutParser.parse(value) do
-        {:ok, value} -> {:ok, %{default: to_timeout(value)}}
-        _ -> {:error, "invalid timeout `default` value"}
-      end
-    end
-
-    defp parse_timeout_default(_), do: {:error, "invalid timeout `default` value"}
   end
+
+  defp parse_timeout_default(value) when is_binary(value) do
+    case TimeoutParser.parse(value) do
+      {:ok, value} -> {:ok, %{default: to_timeout(value)}}
+      _ -> {:error, "invalid timeout `default` value"}
+    end
+  end
+
+  defp parse_timeout_default(_), do: {:error, "invalid timeout `default` value"}
 end

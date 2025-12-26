@@ -12,16 +12,16 @@ defmodule Enviable.Conversion do
   atom_options = """
   ### Options
 
-  - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as a lookup
-    table, if present. Any value not found will result in an exception.
+  - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
+    a lookup table, if present. Any value not found will result in an exception.
 
   - `:default`: The `t:atom/0` or `t:binary/0` value representing the atom value to use if
     the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
 
-  - `:downcase`: See `t:opt_downcase/0`.
+  - `:downcase`: See `t:opt_atom_downcase/0`.
 
-  - `:upcase`: See `t:opt_upcase/0`.
+  - `:upcase`: See `t:opt_atom_upcase/0`.
   """
 
   @typedoc """
@@ -61,7 +61,7 @@ defmodule Enviable.Conversion do
   - `:default`: The default value, which must be `true` or `false`. The default value is
     `false`.
   - `:downcase`: This option controls a type conversion's case folding mode passed to
-    `String.downcase/2`. The default is `false`. `true` has the same meaning as
+    `String.downcase/2`. The default is `:default`. `true` has the same meaning as
     `:default`.
 
     The default `:downcase` value for boolean conversions can be changed at compile time
@@ -74,18 +74,12 @@ defmodule Enviable.Conversion do
     ```
 
   - `:truthy`, `:falsy`: Only one of `:truthy` or `:falsy` may be specified. It must be
-    a list of `t:binary/0` values. If neither is specified, the default is `truthy: ~w[1
-    true]`.
+    a list of `t:binary/0` values. If neither is specified, the default is
+    `truthy: ~w[1 true]`.
 
     - `:truthy`: if the value to convert is in this list, the result is `true`
 
     - `:falsy`: if the value to convert is in this list, the result is `false`
-
-  > #### Default Change {: .info}
-  >
-  > In the next major version of Enviable, the fallback default `:downcase` value is
-  > changing to `:default` instead of `false` as it should not matter whether the
-  > matched value is `true`, `TRUE`, or `True` for boolean tests.
   """
   @typedoc since: "1.0.0"
   @type convert_boolean :: :boolean
@@ -96,6 +90,7 @@ defmodule Enviable.Conversion do
   ### Options
 
   - `:base`: The base (an integer value `2..36`). Default is `10`.
+
   - `:default`: The default value. If specified as a `t:binary/0`, it must be expressed in
     the `:base` value and convert cleanly to an integer.
   """
@@ -152,6 +147,7 @@ defmodule Enviable.Conversion do
   ### Options
 
   - `:default`: The default value, which may be any valid JSON type.
+
   - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
     export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
     a `t:mfa/0`, the variable value is passed as the first parameter.
@@ -160,15 +156,15 @@ defmodule Enviable.Conversion do
     considered successful. Any other result is treated as failure.
 
     The default JSON module is selected from the `:enviable` application configuration
-    option `:json_engine`. If this is unset, the default value is one of the following,
-    in order:
+    option `:json_engine`. If this is unset, the default value is one of the following, in
+    order:
 
     - [`JSON`][elixir-json] if the Elixir `m:JSON` module is available (Elixir 1.18+)
     - `:json` if the Erlang/OTP 27+ `m::json` module is available or if
       [json_polyfill][jp] is installed
     -  [Jason][jason]
 
-    This example shows using [Thoas][thoas] as the JSON engine..
+    This example shows using [Thoas][thoas] as the JSON engine.
 
     ```elixir
     import Config
@@ -188,8 +184,8 @@ defmodule Enviable.Conversion do
   Indicates a conversion to log level `t:atom/0` for `Logger.configure/1`.
 
   This conversion is always case-insensitive, and the result is one of `:emergency`,
-  `:alert`, `:critical`, `:error`, `:warning`, `:warn`, `:notice`, `:info`, `:debug`,
-  `:all`, or `:none`.
+  `:alert`, `:critical`, `:error`, `:warning`, `:notice`, `:info`, `:debug`, `:all`, or
+  `:none`.
 
   ### Options
 
@@ -213,6 +209,7 @@ defmodule Enviable.Conversion do
 
   - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
     a lookup table, if present. Any value not found will result in an exception.
+
   - `:default`: The `t:module/0` or `t:binary/0` value representing the atom value to use
     if the environment variable is unset (`nil`). If the `:allowed` option is present, the
     default value must be one of the permitted values.
@@ -275,17 +272,15 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.7.0"
   @type convert_timeout :: :timeout
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    @typedoc """
-    Supported default values for timeout conversions.
-    """
-    @typedoc since: "1.7.0"
-    @type timeout_default ::
-            binary()
-            | {:week | :day | :hour | :minute | :second | :millisecond, non_neg_integer()}
-            | timeout()
-            | Duration.t()
-  end
+  @typedoc """
+  Supported default values for timeout conversions.
+  """
+  @typedoc since: "1.7.0"
+  @type timeout_default ::
+          binary()
+          | {:week | :day | :hour | :minute | :second | :millisecond, non_neg_integer()}
+          | timeout()
+          | Duration.t()
 
   @typedoc """
   Indicates a conversion from a PEM string through `:public_key.pem_decode/1`.
@@ -297,10 +292,13 @@ defmodule Enviable.Conversion do
 
     - `false`: the list is returned without processing, suitable for further processing
       with `:public_key.pem_entry_decode/2`.
+
     - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
       `:Certificate` records, or an empty list.
-    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
-      exception if none are found.
+
+    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an exception
+      if none are found.
+
     - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
       exception if one is not found.
   """
@@ -314,8 +312,11 @@ defmodule Enviable.Conversion do
 
   - `true`: either an unencrypted primary key `t:binary/0` or a list of unencrypted
     certificates (`[{:Certificate, ct, :not_encrypted}]`);
+
   - `false`: an unmodified list of `t::public_key.pem_entry/0`.
+
   - `:cert`: list of unencrypted certificates (`[{:Certificate, ct, :not_encrypted}]`).
+
   - `:key`: unencrypted primary key `t:binary/0`
 
   The default is `true`.
@@ -337,8 +338,8 @@ defmodule Enviable.Conversion do
   > #### Untrusted Input {: .error}
   >
   > This function parses (with `:erl_scan.string/1`) and evaluates (with
-  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the
-  > context of your application. Do not use this with untrusted input.
+  > `:erl_parse.parse_term/1`) Erlang code from environment variables in the context of
+  > your application. Do not use this with untrusted input.
 
   ## Examples
 
@@ -405,7 +406,7 @@ defmodule Enviable.Conversion do
   ### Options
 
   - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
 
   If a secondary type is provided, the options for that type may also be provided.
   """
@@ -421,7 +422,8 @@ defmodule Enviable.Conversion do
   ### Options
 
   - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:upper`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
     is `false` (the opposite of `Base.decode32/2`).
 
@@ -439,7 +441,8 @@ defmodule Enviable.Conversion do
   ### Options
 
   - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:upper`.
+    `:lower`, or `:mixed`. The default is `:mixed`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.hex_decode32/2`. The
     default is `false` (the opposite of `Base.hex_decode32/2`).
 
@@ -458,6 +461,7 @@ defmodule Enviable.Conversion do
 
   - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
     the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
+
   - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
     is `false` (the opposite of `Base.decode64/2`).
 
@@ -477,14 +481,17 @@ defmodule Enviable.Conversion do
   - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
     by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
     a regular expression). Defaults to `","`.
+
   - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
     `:infinity`). Passed to `String.split/3`.
+
   - `:trim`: A boolean option whether empty entries should be omitted.
 
   When the pattern is a regular expression, `Regex.split/3` options are also supported:
 
   - `:on`: specifies which captures to split the string on, and in what order. Defaults to
     :first which means captures inside the regex do not affect the splitting process.
+
   - `:include_captures`: when true, includes in the result the matches of the regular
     expression. The matches are not counted towards the maximum number of parts if
     combined with the `:parts` option. Defaults to `false`.
@@ -507,26 +514,41 @@ defmodule Enviable.Conversion do
   @type conversion :: primitive | encoded
 
   @typedoc """
-  This option controls a type conversion's case folding mode passed to
-  `String.downcase/2`.
+  This option controls boolean conversion case folding mode passed to `String.downcase/2`.
+
+  The default is `false`. `true` has the same meaning as `:default`.
+  """
+  @typedoc since: "2.0.0"
+  @type opt_bool_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
+
+  @typedoc """
+  This option controls atom conversion case folding mode passed to `String.downcase/2`.
 
   The default is `false`. `true` has the same meaning as `:default`.
 
   This is mutually exclusive with `upcase`.
   """
-  @typedoc since: "1.0.0"
-  @type opt_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
+  @typedoc since: "2.0.0"
+  @type opt_atom_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
 
   @typedoc """
-  This option controls a type conversion's case folding mode passed to
-  `String.upcase/2`.
+  This option controls a atom conversion case folding mode passed to `String.upcase/2`.
 
   The default is `false`. `true` has the same meaning as `:default`.
 
   This is mutually exclusive with `downcase`.
   """
-  @typedoc since: "1.5.0"
-  @type opt_upcase :: {:upcase, true | false | :default | :ascii | :greek | :turkic}
+  @typedoc since: "2.0.0"
+  @type opt_atom_upcase :: {:upcase, true | false | :default | :ascii | :greek | :turkic}
+
+  @typedoc """
+  This option controls case sensitivity processing for `t:encoded_base16/0`,
+  `t:encoded_base32/0`, or `t:encoded_hex32/0`.
+
+  The default is `:mixed`.
+  """
+  @typedoc since: "2.0.0"
+  @type opt_encoded_case :: {:case, :lower | :mixed | :upper}
 
   @spec convert_as(value :: nil | binary(), varname :: String.t(), conversion, keyword) :: nil | term()
   @doc false

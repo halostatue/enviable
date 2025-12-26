@@ -2,5 +2,5 @@
 ERL_AFLAGS = "-kernel shell_history enabled shell_history_file_bytes 5242880"
 
 [tools]
-elixir = "1.18.4-otp-27"
-erlang = "27.3.4.2"
+elixir = "1.19.4-otp-28"
+erlang = "28.3"

@@ -25,20 +25,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - elixir: '1.14'
-            otp: '25'
-            os: ubuntu-22.04
-          - elixir: '1.15'
-            otp: '26'
-            os: ubuntu-22.04
-          - elixir: '1.16'
-            otp: '26'
-            os: ubuntu-22.04
           - elixir: '1.17'
             otp: '27'
             os: ubuntu-22.04
           - elixir: '1.18'
             otp: '27'
+            os: ubuntu-22.04
+          - elixir: '1.19'
+            otp: '28'
             os: ubuntu-22.04
             check_formatted: true
             warnings_as_errors: true
@@ -53,7 +47,7 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -62,7 +56,7 @@ jobs:
             github.com:443
             repo.hex.pm:443
 
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -72,7 +66,7 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: ${{ matrix.elixir }}
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           key: builds@elixir-${{ steps.install.outputs.elixir-version }}-otp-${{ steps.install.outputs.otp-version }}-mix-${{ hashFiles('mix.lock') }}
           path: |
@@ -101,7 +95,7 @@ jobs:
       - run: mix credo --strict
         if: matrix.credo
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           key: plts@elixir-${{ steps.install.outputs.elixir-version }}-otp-${{ steps.install.outputs.otp-version }}-mix-${{ hashFiles('mix.lock') }}
           path: |
