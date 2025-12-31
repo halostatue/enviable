@@ -32,7 +32,7 @@ jobs:
             otp: '27'
             os: ubuntu-22.04
           - elixir: '1.19'
-            otp: '28'
+            otp: '28.3'
             os: ubuntu-22.04
             check_formatted: true
             warnings_as_errors: true
@@ -54,6 +54,7 @@ jobs:
             builds.hex.pm:443
             coveralls.io:443
             github.com:443
+            release-assets.githubusercontent.com:443
             repo.hex.pm:443
 
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
