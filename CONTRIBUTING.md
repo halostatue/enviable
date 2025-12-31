@@ -47,7 +47,7 @@ request (see [LICENCE](LICENCE.md)).
 Any contribution (bug, feature request, or pull request) that uses undeclared AI
 output will be rejected.
 
-### Commit Conventions
+## Commit Conventions
 
 Enviable has adopted a variation of the Conventional Commits format for commit
 messages. The following types are permitted:
@@ -95,6 +95,6 @@ Austin Ziegler created Enviable.
 [exunit]: https://hexdocs.pm/ex_unit/ExUnit.html
 [issues]: https://github.com/halostatue/enviable/issues
 [quokka]: https://github.com/emkguts/quokka
-[tpope-qcm]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
+[tpope-qcm]: https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html
 [trailers1]: https://git-scm.com/docs/git-interpret-trailers
 [trailers2]: https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---trailerlttokengtltvaluegt

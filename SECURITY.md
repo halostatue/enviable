@@ -10,17 +10,32 @@ agents.
 Security reports are accepted for the most recent major release with support for
 the previous major version ending immediately.
 
+Enviable supports the three most recent versions of Elixir and supported
+[Erlang/OTP versions][otp-versions].
+
+As of December 2025, the support list is:
+
+| Elixir | Erlang         |
+| ------ | -------------- |
+| 1.17   | 25, 26, 27     |
+| 1.18   | 25, 26, 27, 28 |
+| 1.19   | 26, 27, 28     |
+
+The oldest supported version of Elixir will not be deprecated until six months
+after the release of a new version of Elixir.
+
 ## Reporting a Vulnerability
 
 Prefer creating a [private vulnerability report][advisory] with GitHub.
-Alternatively, send an email to [security@enviable.halostatue.ca][email] with
-the text `Enviable` in the subject. Emails sent to this address should be
-encrypted using [age][age] with the following public key:
+Alternatively, send an email to [security@elixir.halostatue.ca][email] with the
+text `Enviable` in the subject. Emails sent to this address should be encrypted
+using [age][age] with the following public key:
 
 ```
 age1fc6ngxmn02m62fej5cl30lrvwmxn4k3q2atqu53aatekmnqfwumqj4g93w
 ```
 
-[age]: https://github.com/FiloSottile/age
-[email]: mailto:security@enviable.halostatue.ca
 [advisory]: https://github.com/halostatue/enviable/security/advisories/new
+[age]: https://github.com/FiloSottile/age
+[email]: mailto:security@elixir.halostatue.ca
+[otp-versions]: https://hexdocs.pm/elixir/compatibility-and-deprecations.html#between-elixir-and-erlang-otp
