@@ -62,4 +62,4 @@ Documentation is found on [HexDocs][docs].
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
 [jetenv]: https://hexdocs.pm/jetenv/readme.html
 [nvir]: https://hexdocs.pm/nvir/readme.html
-[semver]: http://semver.org/
+[semver]: https://semver.org/
