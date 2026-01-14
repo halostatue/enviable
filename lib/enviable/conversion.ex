@@ -603,6 +603,7 @@ defmodule Enviable.Conversion do
   end
 
   defp convert_to(:atom, value, _config) do
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
     {:ok, String.to_atom(value)}
   end
 
@@ -655,6 +656,7 @@ defmodule Enviable.Conversion do
   end
 
   defp convert_to(:module, value, _config) do
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
     {:ok, Module.concat([value])}
   end
 

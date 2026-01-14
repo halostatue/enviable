@@ -40,9 +40,11 @@ defmodule EnviableTest do
       Enviable.put_env(%{@test_var => "MAP_STRING"})
       assert Enviable.get_env(@test_var) == "MAP_STRING"
 
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
       Enviable.put_env([{String.to_atom(@test_var), "KW_ATOM"}])
       assert Enviable.get_env(@test_var) == "KW_ATOM"
 
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
       Enviable.put_env([{String.to_atom(@test_var), nil}])
       assert Enviable.get_env(@test_var) == nil
     end
