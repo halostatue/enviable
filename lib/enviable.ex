@@ -80,6 +80,15 @@ defmodule Enviable do
 
   alias Enviable.Conversion
 
+  @type as_list_opt ::
+          {:as, :string | Conversion.primitive()}
+          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
+          | {:parts, pos_integer() | :infinity}
+          | {:trim, boolean()}
+          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
+          | {:include_captures, boolean()}
+          | {atom(), term()}
+
   @doc """
   Set an environment variable value only if it is not yet set. This is a convenience
   wrapper around `System.put_env/2` and `System.get_env/2`.
@@ -1231,16 +1240,7 @@ defmodule Enviable do
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_list(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
-          | {:parts, pos_integer() | :infinity}
-          | {:trim, boolean()}
-          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
-          | {:include_captures, boolean()}
-          | {atom(), term()}
-        ]) :: nil | list()
+  @spec get_env_as_list(String.t(), [{:default, term()} | as_list_opt()]) :: nil | list()
   def get_env_as_list(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2123,16 +2123,7 @@ defmodule Enviable do
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_list(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
-          | {:parts, pos_integer() | :infinity}
-          | {:trim, boolean()}
-          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
-          | {:include_captures, boolean()}
-          | {atom(), term()}
-        ]) :: :error | {:ok, list()}
+  @spec fetch_env_as_list(String.t(), [as_list_opt()]) :: :error | {:ok, list()}
   def fetch_env_as_list(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3126,16 +3117,7 @@ defmodule Enviable do
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_list!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
-          | {:parts, pos_integer() | :infinity}
-          | {:trim, boolean()}
-          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
-          | {:include_captures, boolean()}
-          | {atom(), term()}
-        ]) :: list()
+  @spec fetch_env_as_list!(String.t(), [as_list_opt()]) :: list()
   def fetch_env_as_list!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
