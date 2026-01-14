@@ -5,7 +5,8 @@ defmodule Enviable.Conversion.TimeoutParser do
 
   # Parse integers with optional underscored in them.
   integer_with_underscores =
-    ascii_char([?0..?9])
+    [?0..?9]
+    |> ascii_char()
     |> repeat(choice([ascii_char([?0..?9]), ignore(ascii_char([?_]))]))
     |> reduce({:parse_integer, []})
 
@@ -25,7 +26,10 @@ defmodule Enviable.Conversion.TimeoutParser do
   timeout_component =
     integer_with_underscores
     |> optional(
-      ignore(repeat(ascii_char([?\s])))
+      [?\s]
+      |> ascii_char()
+      |> repeat()
+      |> ignore()
       |> concat(
         choice([
           replace(millisecond_suffix, :millisecond),
@@ -40,10 +44,14 @@ defmodule Enviable.Conversion.TimeoutParser do
     |> reduce({:build_timeout_component, []})
 
   # Parse multiple timeout components separated by spaces
+
   timeout_components =
-    timeout_component
-    |> repeat(
-      ignore(times(ascii_char([?\s]), min: 0))
+    repeat(
+      timeout_component,
+      [?\s]
+      |> ascii_char()
+      |> times(min: 0)
+      |> ignore()
       |> concat(timeout_component)
     )
 
