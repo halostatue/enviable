@@ -21,7 +21,7 @@ defmodule Enviable.MixProject do
       test_coverage: test_coverage(),
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
-        plt_add_apps: [:mix],
+        plt_add_apps: [:credo, :mix],
         plt_local_path: "priv/plts/project.plt",
         plt_core_path: "priv/plts/core.plt"
       ]
@@ -89,6 +89,7 @@ defmodule Enviable.MixProject do
       source_ref: "v#{@version}",
       source_url: @project_url,
       canonical: "https://hexdocs.pm/#{@app}",
+      nest_modules_by_prefix: [Enviable.Credo],
       default_group_for_doc: fn metadata ->
         if group = metadata[:group], do: "Functions: #{group}"
       end
