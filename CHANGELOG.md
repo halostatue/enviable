@@ -1,14 +1,30 @@
 # Enviable Changelog
 
+## 2.1.0 / 2026-01-13
+
+- Added `Enviable.Credo.UnsafeAtom` as an optional [Credo][credo] check. When
+  enabled in `.credo.exs`, it will report on the use of Enviable functions and
+  conversion options that may result in atom exhaustion. This includes the
+  `*_as_atom*` and `*_as_module*` functions, the `:atom` or `:module` conversion
+  type, or an encoded conversion which uses `:atom` or `:module`. Warnings will
+  not be shown when the `:allow` option is provided.
+
+- Added `Enviable.Credo.UnsafeEval` as an optional [Credo][credo] check. When
+  enabled in `.credo.exs`, it will report on the use of unsafe code evaluation
+  checks (the `*_as_elixir*` and `*_as_erlang*` functions).
+
+> These checks and their tests were developed with the assistance of
+> [Kiro][kiro].
+
 ## 2.0.0 / 2025-12-26
 
 - Breaking changes:
 
-  - Enviable supports Elixir 1.17+ only.
+  - Enviable 2.0 supports Elixir 1.17+ only.
 
   - Deprecated functions have been removed: `get_env_boolean/2`,
     `get_env_integer/2`, `fetch_env_boolean/2`, `fetch_env_integer/2`,
-    `fetch_env_boolean!/2`, and `fetch_env_integer!/2`
+    `fetch_env_boolean!/2`, and `fetch_env_integer!/2`.
 
   - The default value for `boolean_downcase` and `downcase` for boolean
     conversion is `:default`. This also required changing some conversion types
@@ -25,9 +41,8 @@
 
   - Added a parser built with [`nimble_parsec`][nimble_parsec] to parse timeout
     strings. This parser (Enviable.Conversion.TimeoutParser) and unit tests were
-    developed with the assistance of [Kiro][kiro] with
-    [Timeout Values][timeout-values] as the initial prompt with human review and
-    revision.
+    developed with the assistance of [Kiro][kiro] with [Timeout Values][timeout]
+    as the initial prompt with human review and revision.
 
 ## 1.6.0 / 2025-08-12
 
@@ -121,6 +136,7 @@
 
 - Initial release.
 
+[credo]: https://github.com/rrrene/credo
 [decimal]: https://hexdocs.pm/decimal/readme.html
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
 [excoveralls]: https://hexdocs.pm/excoveralls/readme.html
@@ -128,5 +144,5 @@
 [mise]: https://mise.jdx.dev
 [nimble_parsec]: https://hexdocs.pm/nimble_parsec/NimbleParsec.html
 [nvir]: https://hexdocs.pm/nvir/readme.html
-[timeout-values]: `m:Enviable#fetch_env_as_timeout/1-timeout-values`
+[timeout]: `m:Enviable#fetch_env_as_timeout/1-timeout-values`
 [to_timeout]: https://hexdocs.pm/elixir/Kernel.html#to_timeout/1
