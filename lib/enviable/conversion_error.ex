@@ -6,7 +6,7 @@ defmodule Enviable.ConversionError do
 
   defexception [:env, :type]
 
-  @impl true
+  @impl Exception
   def message(%{env: env, type: type}) do
     "could not convert environment variable #{inspect(env)} to type #{type}"
   end
