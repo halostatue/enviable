@@ -7,7 +7,10 @@ defmodule EnviableTest do
 
   setup do
     System.delete_env(@test_var)
-    for v <- ~w[DECIMAL FLAG FLOAT JSON LIST LOG_LEVEL NAME PEM PORT TERM TIMEOUT UNSET], do: System.delete_env(v)
+
+    for v <- ~w[DECIMAL DURATION FLAG FLOAT JSON LIST LOG_LEVEL NAME PEM PORT TERM TIMEOUT UNSET],
+        do: System.delete_env(v)
+
     :ok
   end
 
@@ -60,15 +63,13 @@ defmodule EnviableTest do
     end
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    describe "get_env_as_timeout/2" do
-      test "accepts the keyword argument form of `to_timeout/1` as default" do
-        assert 30_000 = Enviable.get_env_as_timeout("UNSET", second: 30)
-      end
+  describe "get_env_as_timeout/2" do
+    test "accepts the keyword argument form of `to_timeout/1` as default" do
+      assert 30_000 = Enviable.get_env_as_timeout("UNSET", second: 30)
+    end
 
-      test "accepts explicit defaults" do
-        assert 30_000 = Enviable.get_env_as_timeout("UNSET", default: "30s", second: 30)
-      end
+    test "accepts explicit defaults" do
+      assert 30_000 = Enviable.get_env_as_timeout("UNSET", default: "30s", second: 30)
     end
   end
 end

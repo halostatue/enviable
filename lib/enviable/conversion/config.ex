@@ -79,6 +79,25 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
+  def parse(:duration, opts) do
+    case Keyword.fetch(opts, :default) do
+      :error ->
+        {:ok, %{default: nil}}
+
+      {:ok, %Duration{} = value} ->
+        {:ok, %{default: value}}
+
+      {:ok, value} when is_binary(value) ->
+        case Duration.from_iso8601(value) do
+          {:ok, value} -> {:ok, %{default: value}}
+          _ -> {:error, "invalid duration `default` value"}
+        end
+
+      _ ->
+        {:error, "invalid duration `default` value"}
+    end
+  end
+
   def parse(:float, opts) do
     case Keyword.fetch(opts, :default) do
       :error ->
@@ -437,9 +456,15 @@ defmodule Enviable.Conversion.Config do
   end
 
   defp parse_timeout_default(value) when is_binary(value) do
-    case TimeoutParser.parse(value) do
-      {:ok, value} -> {:ok, %{default: to_timeout(value)}}
-      _ -> {:error, "invalid timeout `default` value"}
+    case Duration.from_iso8601(value) do
+      {:ok, value} ->
+        {:ok, %{default: to_timeout(value)}}
+
+      _ ->
+        case TimeoutParser.parse(value) do
+          {:ok, value} -> {:ok, %{default: to_timeout(value)}}
+          _ -> {:error, "invalid timeout `default` value"}
+        end
     end
   end
 
