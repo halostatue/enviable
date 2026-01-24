@@ -1,5 +1,14 @@
 # Enviable Changelog
 
+## 2.2.0 / 2026-MM-DD
+
+- Added support for [`Duration`][duration] values. This includes updating the
+  support for `timeout` conversions to parse ISO 8601 duration representations.
+
+- Added [usage rules](./usage-rules.md) for use with [`usage_rules`][urules].
+
+  The usage rules were built with the assistance of [Kiro][kiro].
+
 ## 2.1.0 / 2026-01-13
 
 - Added `Enviable.Credo.UnsafeAtom` as an optional [Credo][credo] check. When
@@ -139,6 +148,7 @@
 [credo]: https://github.com/rrrene/credo
 [decimal]: https://hexdocs.pm/decimal/readme.html
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
+[duration]: https://hexdocs.pm/elixir/Duration.html
 [excoveralls]: https://hexdocs.pm/excoveralls/readme.html
 [kiro]: https://kiro.dev
 [mise]: https://mise.jdx.dev
@@ -146,3 +156,4 @@
 [nvir]: https://hexdocs.pm/nvir/readme.html
 [timeout]: `m:Enviable#fetch_env_as_timeout/1-timeout-values`
 [to_timeout]: https://hexdocs.pm/elixir/Kernel.html#to_timeout/1
+[urules]: https://github.com/ash-project/usage_rules

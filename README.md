@@ -95,7 +95,14 @@ Enviable can be installed by adding `enviable` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:enviable, "~> 2.1"}
+    {:enviable, "~> 2.1"},
+    # Optional, required for decimal conversion
+    {:decimal, "~> 2.3"},
+    # Optional, required only if :json or JSON aren't available or another
+    # JSON engine is not configured
+    {:jason, "~> 1.4"},
+    # Optional, if using the Enviable credo checks
+    {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
   ]
 end
 ```
