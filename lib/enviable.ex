@@ -124,6 +124,8 @@ defmodule Enviable do
 
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `get_env_as_decimal/2`)
 
+  - `:duration` (`t:Enviable.Conversion.convert_duration/0`, `get_env_as_duration/2`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `get_env_as_elixir/1`)
 
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `get_env_as_erlang/1`)
@@ -145,8 +147,7 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `get_env_as_safe_module/2`)
 
-  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `get_env_as_timeout/2`),
-    supported on Elixir 1.17+
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `get_env_as_timeout/2`)
 
   Supported encoded conversions are:
 
@@ -1265,6 +1266,8 @@ defmodule Enviable do
 
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal/1`)
 
+  - `:duration` (`t:Enviable.Conversion.convert_duration/0`, `fetch_env_as_duration/2`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir/1`)
 
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang/1`)
@@ -1286,8 +1289,7 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module/2`)
 
-  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout/1`),
-    supported on Elixir 1.17+
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout/1`)
 
   Supported encoded conversions are:
 
@@ -2148,6 +2150,8 @@ defmodule Enviable do
 
   - `:decimal` (`t:Enviable.Conversion.convert_decimal/0`, `fetch_env_as_decimal!/2`)
 
+  - `:duration` (`t:Enviable.Conversion.convert_duration/0`, `fetch_env_as_duration!/2`)
+
   - `:elixir` (`t:Enviable.Conversion.convert_elixir/0`, `fetch_env_as_elixir!/1`)
 
   - `:erlang` (`t:Enviable.Conversion.convert_erlang/0`, `fetch_env_as_erlang!/1`)
@@ -2171,8 +2175,7 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module!/2`)
 
-  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout!/2`),
-    supported on Elixir 1.17+
+  - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout!/2`)
 
   Supported encoded conversions are:
 
@@ -3179,6 +3182,9 @@ defmodule Enviable do
   iex> Enviable.get_env_as_timeout("UNSET", "30s")
   30000
 
+  iex> Enviable.get_env_as_timeout("UNSET", "PT30S")
+  30000
+
   iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
   iex> Enviable.get_env_as_timeout("TIMEOUT")
   30000
@@ -3259,6 +3265,93 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_timeout!(String.t()) :: timeout()
   def fetch_env_as_timeout!(varname), do: fetch_env_as!(varname, :timeout)
+
+  @doc """
+  Returns the value of an environment variable converted to a `t:Duration.t/0` or
+  a default value if the variable is unset. If no `default` is provided, `nil` will be
+  returned.
+
+  #{timeout_values}
+
+  ### Options
+
+  - `:default`: The default value. a `t:Duration.t/0` struct or an ISO8601 duration
+    string parseable by `Duration.from_iso8601/1`.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.get_env_as_duration("UNSET")
+  nil
+
+  iex> Enviable.get_env_as_duration("UNSET", "PT30S")
+  %Duration{second: 30}
+
+  iex> Enviable.put_env("TIMEOUT", "PT1H30M")
+  iex> Enviable.get_env_as_duration("TIMEOUT")
+  %Duration{hour: 1, minute: 30}
+  ```
+  """
+  @doc since: "2.2.0"
+  @doc group: "Conversion"
+  @spec get_env_as_duration(
+          String.t(),
+          String.t() | Duration.t() | [{:default, String.t() | Duration.t()}]
+        ) :: Duration.t()
+  def get_env_as_duration(varname, opts \\ [])
+
+  def get_env_as_duration(varname, default) when is_struct(default, Duration) or is_binary(default),
+    do: get_env_as(varname, :duration, default: default)
+
+  def get_env_as_duration(varname, opts), do: get_env_as(varname, :duration, opts)
+
+  @doc """
+  Returns the value of an environment variable converted to a `t:Duration.t/0` as
+  `{:ok, Duration.t()}` or `:error` if the variable is unset.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.fetch_env_as_duration("UNSET")
+  :error
+
+  iex> Enviable.put_env("DURATION", "PT30S")
+  iex> Enviable.fetch_env_as_duration("DURATION")
+  {:ok, %Duration{second: 30}}
+
+  iex> Enviable.put_env("DURATION", "PT1H30M")
+  iex> Enviable.fetch_env_as_duration("DURATION")
+  {:ok, %Duration{hour: 1, minute: 30}}
+  ```
+  """
+  @doc since: "2.2.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_duration(String.t()) :: {:ok, Duration.t()} | :error
+  def fetch_env_as_duration(varname), do: fetch_env_as(varname, :duration)
+
+  @doc """
+  Returns the value of an environment variable converted to a `t:Duration.t/0` or raises
+  an exception if the variable is unset.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.fetch_env_as_duration!("UNSET")
+  ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
+
+  iex> Enviable.put_env("DURATION", "PT30S")
+  iex> Enviable.fetch_env_as_duration!("DURATION")
+  %Duration{second: 30}
+
+  iex> Enviable.put_env("DURATION", "PT1H30M")
+  iex> Enviable.fetch_env_as_duration!("DURATION")
+  %Duration{hour: 1, minute: 30}
+  ```
+  """
+  @doc since: "2.2.0"
+  @doc group: "Conversion"
+  @spec fetch_env_as_duration!(String.t()) :: Duration.t()
+  def fetch_env_as_duration!(varname), do: fetch_env_as!(varname, :duration)
 
   @doc """
   Deletes an environment variable, removing `varname` from the environment.

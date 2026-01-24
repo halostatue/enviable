@@ -887,43 +887,71 @@ defmodule Enviable.ConversionTest do
     end
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    describe "conversion: timeout" do
-      test "value nil" do
-        assert :infinity == convert_as(nil, :timeout)
-      end
+  describe "conversion: timeout" do
+    test "value nil" do
+      assert :infinity == convert_as(nil, :timeout)
+    end
 
-      test "value nil with default" do
-        assert :infinity == convert_as(nil, :timeout, default: :infinity)
-        assert :infinity == convert_as(nil, :timeout, default: "infinity")
-        assert 3 == convert_as(nil, :timeout, default: 3)
-        assert 5 == convert_as(nil, :timeout, default: "5")
-        assert 5000 == convert_as(nil, :timeout, default: "5s")
-        assert 5000 == convert_as(nil, :timeout, default: Duration.new!(second: 5))
-      end
+    test "value nil with default" do
+      assert :infinity == convert_as(nil, :timeout, default: :infinity)
+      assert :infinity == convert_as(nil, :timeout, default: "infinity")
+      assert 3 == convert_as(nil, :timeout, default: 3)
+      assert 5 == convert_as(nil, :timeout, default: "5")
+      assert 5000 == convert_as(nil, :timeout, default: "5s")
+      assert 5000 == convert_as(nil, :timeout, default: Duration.new!(second: 5))
+    end
 
-      test "value infinity" do
-        assert :infinity == convert_as("infinity", :timeout)
-      end
+    test "value infinity" do
+      assert :infinity == convert_as("infinity", :timeout)
+    end
 
-      test "value integer (milliseconds)" do
-        assert 3 == convert_as("3", :timeout)
-      end
+    test "value integer (milliseconds)" do
+      assert 3 == convert_as("3", :timeout)
+    end
 
-      test "value timeout string" do
-        assert 5000 == convert_as("5s", :timeout)
-      end
+    test "value timeout string" do
+      assert 5000 == convert_as("5s", :timeout)
+    end
 
-      test "invalid timeout string" do
-        assert_conversion_error("X", :timeout)
-      end
+    test "invalid timeout string" do
+      assert_conversion_error("X", :timeout)
+    end
 
-      test "invalid default" do
-        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: 1.5)
-        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: [bad: :list])
-        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "X")
-        assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "15s s")
-      end
+    test "invalid default" do
+      assert_config_error("invalid timeout `default` value", "5s", :timeout, default: 1.5)
+      assert_config_error("invalid timeout `default` value", "5s", :timeout, default: [bad: :list])
+      assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "X")
+      assert_config_error("invalid timeout `default` value", "5s", :timeout, default: "15s s")
+    end
+  end
+
+  describe "conversion: duration" do
+    test "value nil" do
+      assert nil == convert_as(nil, :duration)
+    end
+
+    test "value nil with default" do
+      assert %Duration{minute: 3} == convert_as(nil, :duration, default: Duration.new!(minute: 3))
+      assert %Duration{day: 3} == convert_as(nil, :duration, default: "P3D")
+      assert %Duration{day: 3, hour: -5} == convert_as(nil, :duration, default: "P3DT-5H")
+      assert %Duration{day: -3, hour: 5} == convert_as(nil, :duration, default: "-P3DT-5H")
+    end
+
+    test "value duration string" do
+      assert %Duration{day: 3} == convert_as("P3D", :duration)
+      assert %Duration{day: 3, hour: -5} == convert_as("P3DT-5H", :duration)
+      assert %Duration{day: -3, hour: 5} == convert_as("-P3DT-5H", :duration)
+    end
+
+    test "invalid duration string" do
+      assert_conversion_error("X", :duration)
+    end
+
+    test "invalid default" do
+      assert_config_error("invalid duration `default` value", "5s", :duration, default: 1.5)
+      assert_config_error("invalid duration `default` value", "5s", :duration, default: [bad: :list])
+      assert_config_error("invalid duration `default` value", "5s", :duration, default: "X")
+      assert_config_error("invalid duration `default` value", "5s", :duration, default: "15s s")
     end
   end
 

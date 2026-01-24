@@ -244,15 +244,20 @@ defmodule Enviable.Conversion do
   @type convert_safe_module :: :safe_module
 
   @typedoc """
-  Indicates a conversion to `t:timeout/0`.
+  Indicates a conversion to `t:Duration.t/0`.
+  """
+  @typedoc since: "2.2.0"
+  @type convert_duration :: :duration
 
-  Supported only on Elixir 1.17+.
+  @typedoc """
+  Indicates a conversion to `t:timeout/0`.
 
   ### Timeout Values
 
-  Timeout values are specified as non-negative integer values with optional suffixes or
-  the word `infinity`. The integer part may have underscores (`_`) separating digits like
-  Elixir itself.
+  Timeout values are either ISO8601 duration strings (like `PT30M` for a 30 minute
+  duration, see `Duration.from_iso8601/1`), the word `infinity`, or a non-negative integer
+  value with optional suffixes. The integer part may have underscores (`_`) separating
+  digits like Elixir itself.
 
   If no suffix is present, the value is in milliseconds. Supported suffixes are:
 
@@ -264,10 +269,10 @@ defmodule Enviable.Conversion do
   - `millisecond`, `milliseconds`, `ms`: the number of milliseconds
 
   Suffixes may be present with or without a space (`30s` and `30 s` are the same value),
-  and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. See
-  `Kernel.to_timeout/1` for more details.
+  and multiple timeouts may be chained (`1h 30m`), but may not be duplicated. Only
+  lowercase suffixes are supported.
 
-  Only lowercase suffixes are supported.
+  See `Kernel.to_timeout/1` for more details.
   """
   @typedoc since: "1.7.0"
   @type convert_timeout :: :timeout
@@ -716,12 +721,23 @@ defmodule Enviable.Conversion do
     end
   end
 
-  if function_exported?(Kernel, :to_timeout, 1) do
-    defp convert_to(:timeout, value, _config) when is_binary(value) do
-      case TimeoutParser.parse(value) do
-        {:ok, value} -> {:ok, to_timeout(value)}
-        _ -> :error
-      end
+  defp convert_to(:duration, value, _config) do
+    case Duration.from_iso8601(value) do
+      {:ok, value} -> {:ok, value}
+      _ -> :error
+    end
+  end
+
+  defp convert_to(:timeout, value, _config) when is_binary(value) do
+    case Duration.from_iso8601(value) do
+      {:ok, value} ->
+        {:ok, to_timeout(value)}
+
+      _ ->
+        case TimeoutParser.parse(value) do
+          {:ok, value} -> {:ok, to_timeout(value)}
+          _ -> :error
+        end
     end
   end
 
