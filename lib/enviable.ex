@@ -951,12 +951,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> Enviable.get_env_as_base16("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.get_env_as_base16("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.get_env_as_base16("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.get_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -1003,12 +1010,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> Enviable.get_env_as_base32("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.get_env_as_base32("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.get_env_as_base32("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.get_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -1056,12 +1070,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.hex_encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> Enviable.get_env_as_hex32("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.get_env_as_hex32("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.get_env_as_hex32("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.get_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -1109,12 +1130,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
+  iex> Enviable.get_env_as_base64("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.get_env_as_base64("NAME", padding: false)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.get_env_as_base64("NAME", as: :string, padding: true)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.get_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
@@ -1162,12 +1190,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.url_encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> Enviable.get_env_as_url_base64("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.get_env_as_url_base64("NAME", padding: false)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.get_env_as_url_base64("NAME", as: :string, padding: true)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.get_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
@@ -1835,12 +1870,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> Enviable.fetch_env_as_base16("NAME")
+  {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16("NAME", case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16("NAME", as: :string, case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
@@ -1887,12 +1929,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> Enviable.fetch_env_as_base32("NAME")
+  {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32("NAME", case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32("NAME", as: :string, case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
@@ -1940,12 +1989,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.hex_encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> Enviable.fetch_env_as_hex32("NAME")
+  {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32("NAME", case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32("NAME", as: :string, case: :lower)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
@@ -1993,12 +2049,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
+  iex> Enviable.fetch_env_as_base64("NAME")
+  {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64("NAME", padding: false)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64("NAME", as: :string, padding: true)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
   {:ok, :red}
   ```
@@ -2046,12 +2109,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.url_encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> Enviable.fetch_env_as_url_base64("NAME")
+  {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64("NAME", padding: false)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64("NAME", as: :string, padding: true)
   {:ok, "RED"}
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
   {:ok, :red}
   ```
@@ -2830,12 +2900,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> Enviable.fetch_env_as_base16!("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16!("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16!("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
   iex> Enviable.fetch_env_as_base16!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -2882,12 +2959,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> Enviable.fetch_env_as_base32!("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32!("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32!("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_base32!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -2935,12 +3019,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.hex_encode32("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> Enviable.fetch_env_as_hex32!("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32!("NAME", case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32!("NAME", as: :string, case: :lower)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
   iex> Enviable.fetch_env_as_hex32!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
@@ -2988,12 +3079,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
+  iex> Enviable.fetch_env_as_base64!("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64!("NAME", padding: false)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64!("NAME", as: :string, padding: true)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_base64!("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
@@ -3041,12 +3139,19 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> red = Base.url_encode64("RED", padding: true)
-  iex> Enviable.put_env("NAME", red)
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> Enviable.fetch_env_as_url_base64!("NAME")
+  "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64!("NAME", padding: false)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64!("NAME", as: :string, padding: true)
   "RED"
+
+  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
   iex> Enviable.fetch_env_as_url_base64!("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
@@ -3186,6 +3291,10 @@ defmodule Enviable do
   30000
 
   iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
+  iex> Enviable.get_env_as_timeout("TIMEOUT")
+  30000
+
+  iex> Enviable.put_env("TIMEOUT", "PT30S")
   iex> Enviable.get_env_as_timeout("TIMEOUT")
   30000
   ```

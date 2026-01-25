@@ -1,6 +1,7 @@
 # credo:disable-for-this-file Credo.Check.Readability.ModuleDoc
 
 if Code.ensure_loaded?(Credo.Check) do
+  # coveralls-ignore-next-line
   defmodule Enviable.Credo.UnsafeAtom do
     use Credo.Check,
       id: "ENV001",

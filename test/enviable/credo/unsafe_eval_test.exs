@@ -68,6 +68,19 @@ defmodule Enviable.Credo.UnsafeEvalTest do
       |> run_check(UnsafeEval)
       |> refute_issues()
     end
+
+    test "ignores non-atom / module conversions" do
+      ~S'''
+      defmodule CredoSampleModule do
+        def some_function do
+          Enviable.get_env_as_base64("VAR", as: :integer)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeEval)
+      |> refute_issues()
+    end
   end
 
   describe "issues reported" do
