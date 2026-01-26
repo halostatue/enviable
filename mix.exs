@@ -85,7 +85,7 @@ defmodule Enviable.MixProject do
           title: "Apache License, version 2.0"
         ],
         "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"],
-        "usage-rules.md": [filename: "usage-rules.md", title: "Agent Usage Rules"],
+        "usage-rules.md": [filename: "usage-rules.md", title: "Agent Usage Rules"]
       ],
       source_ref: "v#{@version}",
       source_url: @project_url,
