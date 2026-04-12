@@ -119,7 +119,7 @@ Documentation is found on [HexDocs][docs].
 [envious]: https://github.com/jax-ex/envious
 [hexpm]: https://hex.pm/package/enviable
 [jetenv]: https://hexdocs.pm/jetenv/readme.html
-[licence]: https://github.com/halostatue/prosody/blob/main/LICENCE.md
+[licence]: https://github.com/halostatue/enviable/blob/main/LICENCE.md
 [nvir]: https://hexdocs.pm/nvir/readme.html
 [semver]: https://semver.org/
 [shield-coveralls]: https://img.shields.io/coverallsCoverage/github/halostatue/enviable?style=for-the-badge
