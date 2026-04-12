@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "2.2.0"
+  @version "2.2.1"
 
   def project do
     [
@@ -62,7 +62,7 @@ defmodule Enviable.MixProject do
       {:nimble_parsec, "~> 1.4"},
       {:decimal, "~> 2.0", optional: true},
       {:jason, "~> 1.0", optional: true},
-      {:credo, "~> 1.0", optional: true, runtime: false},
+      {:credo, "~> 1.7 and >= 1.7.14", optional: true, runtime: false},
       {:castore, "~> 1.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: [:test]},

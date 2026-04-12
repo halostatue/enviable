@@ -1,6 +1,14 @@
 # Enviable Changelog
 
-## 2.2.0 / 2026-MM-DD
+## 2.2.1 / 2026-04-11
+
+- Fixed an issue where the Enviable [Credo][credo] checks only work if you have
+  Credo 1.7.14 or higher, but the requirement says any Credo version 1.0 or
+  higher. This has been resolved by restricting the minimum version of Credo
+  required. For most users, this should be sufficient. Please file an
+  [issue][issues] if you cannot upgrade to this version of Credo.
+
+## 2.2.0 / 2026-01-25
 
 - Added support for [`Duration`][duration] values. This includes updating the
   support for `timeout` conversions to parse ISO 8601 duration representations.
@@ -154,6 +162,7 @@
 [mise]: https://mise.jdx.dev
 [nimble_parsec]: https://hexdocs.pm/nimble_parsec/NimbleParsec.html
 [nvir]: https://hexdocs.pm/nvir/readme.html
+[issues]: https://github.com/halostatue/enviable/issues
 [timeout]: `m:Enviable#fetch_env_as_timeout/1-timeout-values`
 [to_timeout]: https://hexdocs.pm/elixir/Kernel.html#to_timeout/1
 [urules]: https://github.com/ash-project/usage_rules
