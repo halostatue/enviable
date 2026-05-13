@@ -607,6 +607,7 @@ defmodule Enviable.Conversion do
     Map.fetch(allowed, value)
   end
 
+  # sobelow_skip ["DOS.StringToAtom"]
   defp convert_to(:atom, value, _config) do
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
     {:ok, String.to_atom(value)}
@@ -710,6 +711,7 @@ defmodule Enviable.Conversion do
     end
   end
 
+  # sobelow_skip ["RCE.CodeModule"]
   defp convert_to(:elixir, value, _config) do
     case Code.string_to_quoted(value) do
       {:ok, quoted} ->

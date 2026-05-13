@@ -1,7 +1,9 @@
 # Enviable
 
-[![Hex.pm][shield-hex]][hexpm] [![Hex Docs][shield-docs]][docs]
-[![Apache 2.0][shield-licence]][licence] ![Coveralls][shield-coveralls]
+[![Hex.pm](https://img.shields.io/hexpm/v/enviable?style=for-the-badge "Hex Version")](https://hex.pm/package/enviable)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg?style=for-the-badge "Hex Docs")](https://hexdocs.pm/enviable)
+[![Apache 2.0](https://img.shields.io/hexpm/l/enviable?style=for-the-badge&label=licence "Apache 2.0")](https://github.com/halostatue/enviable/blob/main/LICENCE.md)
+![Coverage](https://img.shields.io/coverallsCoverage/github/halostatue/enviable?style=for-the-badge)
 
 - code :: <https://github.com/halostatue/enviable>
 - issues :: <https://github.com/halostatue/enviable/issues>
@@ -117,12 +119,6 @@ Documentation is found on [HexDocs][docs].
 [docs]: https://hexdocs.pm/enviable
 [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
 [envious]: https://github.com/jax-ex/envious
-[hexpm]: https://hex.pm/package/enviable
 [jetenv]: https://hexdocs.pm/jetenv/readme.html
-[licence]: https://github.com/halostatue/enviable/blob/main/LICENCE.md
 [nvir]: https://hexdocs.pm/nvir/readme.html
 [semver]: https://semver.org/
-[shield-coveralls]: https://img.shields.io/coverallsCoverage/github/halostatue/enviable?style=for-the-badge
-[shield-docs]: https://img.shields.io/badge/hex-docs-lightgreen.svg?style=for-the-badge "Hex Docs"
-[shield-hex]: https://img.shields.io/hexpm/v/enviable?style=for-the-badge "Hex Version"
-[shield-licence]: https://img.shields.io/hexpm/l/enviable?style=for-the-badge&label=licence "Apache 2.0"

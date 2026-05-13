@@ -1,5 +1,10 @@
 # Enviable Changelog
 
+## 2.3.0 / 2026-05-12
+
+- Extended support for Decimal 3.
+- Updated dependencies.
+
 ## 2.2.1 / 2026-04-11
 
 - Fixed an issue where the Enviable [Credo][credo] checks only work if you have

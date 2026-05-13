@@ -13,7 +13,7 @@ the previous major version ending immediately.
 Enviable supports the three most recent versions of Elixir and supported
 [Erlang/OTP versions][otp-versions].
 
-As of December 2025, the support list is:
+As of May 2026, the support list is:
 
 | Elixir | Erlang         |
 | ------ | -------------- |

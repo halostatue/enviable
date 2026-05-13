@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "2.2.1"
+  @version "2.3.0"
 
   def project do
     [
@@ -60,31 +60,33 @@ defmodule Enviable.MixProject do
   defp deps do
     [
       {:nimble_parsec, "~> 1.4"},
-      {:decimal, "~> 2.0", optional: true},
+      {:castore, "~> 1.0", optional: true},
+      {:decimal, "~> 2.0 or ~> 3.0", optional: true},
       {:jason, "~> 1.0", optional: true},
       {:credo, "~> 1.7 and >= 1.7.14", optional: true, runtime: false},
-      {:castore, "~> 1.0", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.18", only: [:test]},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
-      {:quokka, "~> 2.6", only: [:dev, :test], runtime: false}
+      {:excoveralls, "~> 0.18", only: [:test]},
+      {:mix_audit, "~> 2.1", only: [:dev, :test]},
+      {:quokka, "~> 2.6", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14", only: [:dev, :test]}
     ]
   end
 
   defp docs do
     [
-      main: "Enviable",
+      main: "readme",
       extras: [
         "README.md",
-        "CONTRIBUTING.md": [filename: "CONTRIBUTING.md", title: "Contributing"],
-        "CODE_OF_CONDUCT.md": [filename: "CODE_OF_CONDUCT.md", title: "Code of Conduct"],
-        "CHANGELOG.md": [filename: "CHANGELOG.md", title: "CHANGELOG"],
-        "LICENCE.md": [filename: "LICENCE.md", title: "Licence"],
+        "CONTRIBUTING.md": [filename: "CONTRIBUTING", title: "Contributing"],
+        "CODE_OF_CONDUCT.md": [filename: "CODE_OF_CONDUCT", title: "Code of Conduct"],
+        "CHANGELOG.md": [filename: "CHANGELOG", title: "CHANGELOG"],
+        "LICENCE.md": [filename: "LICENCE", title: "Licence"],
         "licences/APACHE-2.0.txt": [
-          filename: "APACHE-2.0.txt",
+          filename: "APACHE-2.0",
           title: "Apache License, version 2.0"
         ],
-        "licences/dco.txt": [filename: "dco.txt", title: "Developer Certificate of Origin"],
+        "licences/dco.txt": [filename: "dco", title: "Developer Certificate of Origin"],
         "usage-rules.md": [filename: "usage-rules.md", title: "Agent Usage Rules"]
       ],
       source_ref: "v#{@version}",

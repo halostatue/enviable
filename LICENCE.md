@@ -1,10 +1,12 @@
 # Licence
 
-- SPDX-Licence-Identifier: [Apache-2.0][apache-2]
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
 Enviable is copyright © 2024–2025 Austin Ziegler and is licensed under the
 [Apache License, version 2.0](licences/APACHE-2.0.txt). Portions of Enviable are
 adapted from the `System` module in [Elixir][elixir].
+
+- SPDX Licence: [Apache-2.0][apache-2]
 
 ## Developer Certificate of Origin
 
