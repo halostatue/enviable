@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: block
           disable-sudo: true
@@ -29,7 +29,7 @@ jobs:
             github.com:443
             release-assets.githubusercontent.com:443
 
-      - uses: KineticCafe/actions-dco@b8ab7a2bc910c51e9b5c01e0fc9e0ad6b739d8e0 # v3.1.1
+      - uses: KineticCafe/actions-dco@5f160e3ee086af8fc0fb567b8add0937d074123e # v3.2.0
         with:
           config: |
             comment = true
