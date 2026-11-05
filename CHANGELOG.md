@@ -1,6 +1,6 @@
 # Enviable Changelog
 
-## 3.0.0 / 2026-11-05
+## 3.0.0 / 2026-11-06
 
 > Implemented with [Kiro][kiro], mostly using Claude Opus 5.5. Most of the
 > Codex implementations were hand-written and verified, but various bugs were

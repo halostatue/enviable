@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
         with:
           disable-sudo: true
           egress-policy: block
@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
 
       - name: Submit dependencies
-        uses: erlef/mix-dependency-submission@c4a36104ac7614b1b66d0da6e8a1c7d6d07bc52b # v1.3.2
+        uses: erlef/mix-dependency-submission@c5bd30a0e18822272a914adb7fb153866d491baf # v1.3.5
 
       - name: Dependency Review
         if: ${{ github.event_name == 'pull_request' }}
