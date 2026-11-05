@@ -1,9 +1,26 @@
 defmodule Enviable.Conversion.Config do
-  # Config parsing for conversion options
+  # Conversion option validation and preparation.
+  #
+  # parse/2 validates the options for a single conversion layer against its schema
+  # (Enviable.Conversion.Schema), then applies the checks and preparation that a schema
+  # cannot express:
+  #
+  # - cross-key constraints (`downcase` vs `upcase`, `truthy` vs `falsy`, non-empty
+  #   `allowed`, `default` in `allowed`)
+  # - default coercion (`"3.5"` to `3.5` for `:float`, `[hour: 1]` to `3_600_000` for
+  #   `:timeout`)
+  # - lookup tables (`allowed`)
+  # - compile-time configuration defaults (`:boolean_downcase`, `:json_engine`)
+  #
+  # Error reasons never include `:default` values, which may be secrets.
+  #
+  # List defaults are not prepared here. A list default is converted (or checked) by
+  # Enviable.Conversion only when the value is unset, using the element type's config.
 
   @moduledoc false
 
-  alias Enviable.Conversion.TimeoutParser, warn: false
+  alias Enviable.Conversion.Schema
+  alias Enviable.Conversion.TimeoutParser
 
   @boolean_downcase Application.compile_env(:enviable, :boolean_downcase, :default)
 
@@ -19,454 +36,246 @@ defmodule Enviable.Conversion.Config do
   @log_levels [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none]
   @log_levels_map Map.new(@log_levels, &{Atom.to_string(&1), &1})
 
-  @spec parse(Enviable.Conversion.conversion(), keyword) :: {:ok, map()} | {:error, String.t()}
-  def parse(type, opts) when type in [:atom, :safe_atom] do
-    with {:ok, casefold} <- opt_casefold(opts),
-         {:ok, allowed} <- atom_allowed(opts),
-         {:ok, default} <- atom_default(opts, allowed) do
-      {:ok, %{casefold: casefold, default: default, allowed: allowed}}
+  @typedoc "An error: the failing option key (or keys), and a reason without option values."
+  @type error :: {:error, nil | atom() | [atom()], String.t()}
+
+  @doc """
+  Validates and prepares the options for a single conversion layer.
+  """
+  @spec parse(atom(), keyword()) :: {:ok, map()} | error()
+  def parse(type, opts) do
+    with {:ok, opts} <- Schema.validate(type, opts) do
+      prepare(type, Map.new(opts))
     end
   end
 
-  def parse(:boolean, opts) do
-    with {:ok, {truthy, falsy}} <- boolean_matchers(opts),
-         {:ok, casefold} <- opt_boolean_casefold(opts, @boolean_downcase),
-         {:ok, default} <- boolean_default(opts) do
-      {:ok, %{default: default, casefold: casefold, falsy: falsy, truthy: truthy}}
+  @doc """
+  Prepares `value` as a `:default` for `type` using a config returned by parse/2. Used for
+  the elements of non-string list defaults.
+  """
+  @spec prepare_default(atom(), term(), map()) :: {:ok, term()} | error()
+  def prepare_default(type, value, config) do
+    with {:ok, validated} <- Schema.validate(type, default: value) do
+      default(type, Keyword.fetch!(validated, :default), config)
     end
   end
 
-  def parse(:charlist, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, %{default: nil}}
-      {:ok, value} when is_binary(value) -> {:ok, %{default: String.to_charlist(value)}}
-      {:ok, value} when is_list(value) -> {:ok, %{default: value}}
-      _ -> {:error, "non-charlist `default` value"}
+  # --- preparation
+
+  defp prepare(type, opts) when type in [:atom, :safe_atom, :module, :safe_module] do
+    with {:ok, casefold} <- casefold(opts),
+         {:ok, allowed} <- allowed(type, opts) do
+      config = %{casefold: casefold, allowed: allowed}
+      with_default(type, opts, config, nil)
     end
   end
 
-  if Code.ensure_loaded?(Decimal) do
-    def parse(:decimal, opts) do
-      case Keyword.fetch(opts, :default) do
-        :error ->
-          {:ok, %{default: nil}}
+  defp prepare(:boolean, opts) do
+    with {:ok, {truthy, falsy}} <- boolean_matchers(opts) do
+      config = %{
+        casefold: {:downcase, boolean_casefold(Map.get(opts, :downcase, @boolean_downcase))},
+        truthy: truthy,
+        falsy: falsy
+      }
 
-        {:ok, %Decimal{} = value} ->
-          {:ok, %{default: Decimal.new(value)}}
-
-        {:ok, value} when is_float(value) ->
-          {:ok, %{default: Decimal.from_float(value)}}
-
-        {:ok, value} when is_integer(value) ->
-          {:ok, %{default: Decimal.new(value)}}
-
-        {:ok, value} when is_binary(value) ->
-          case Decimal.parse(value) do
-            {decimal, ""} -> {:ok, %{default: decimal}}
-            _ -> {:error, "invalid decimal `default` value"}
-          end
-
-        _ ->
-          {:error, "invalid decimal `default` value"}
-      end
+      with_default(:boolean, opts, config, false)
     end
   end
 
-  def parse(:timeout, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, %{default: :infinity}}
-      {:ok, value} -> parse_timeout_default(value)
-    end
+  defp prepare(:integer, opts), do: with_default(:integer, opts, %{base: opts.base}, nil)
+
+  defp prepare(:json, opts), do: with_default(:json, opts, %{engine: Map.get(opts, :engine, @default_engine)}, nil)
+
+  defp prepare(:pem, opts), do: {:ok, %{filter: opts.filter}}
+
+  defp prepare(:timeout, opts), do: with_default(:timeout, opts, %{}, :infinity)
+
+  defp prepare(type, _opts) when type in [:erlang, :elixir], do: {:ok, %{}}
+
+  defp prepare(:base16, opts), do: {:ok, %{decode_opts: [case: opts.case]}}
+
+  defp prepare(type, opts) when type in [:base32, :hex32],
+    do: {:ok, %{decode_opts: [case: opts.case, padding: opts.padding]}}
+
+  defp prepare(type, opts) when type in [:base64, :url_base64] do
+    decode_opts = if opts.ignore_whitespace, do: [ignore: :whitespace], else: []
+    {:ok, %{decode_opts: decode_opts ++ [padding: opts.padding]}}
   end
 
-  def parse(:duration, opts) do
-    case Keyword.fetch(opts, :default) do
+  defp prepare(:list, opts) do
+    split_opts =
+      opts
+      |> Map.take([:parts, :trim, :on, :include_captures])
+      |> Enum.sort()
+
+    {:ok, %{delimiter: opts.delimiter, split_opts: split_opts}}
+  end
+
+  defp prepare(type, opts), do: with_default(type, opts, %{}, nil)
+
+  defp with_default(type, opts, config, unset) do
+    case Map.fetch(opts, :default) do
       :error ->
-        {:ok, %{default: nil}}
-
-      {:ok, %Duration{} = value} ->
-        {:ok, %{default: value}}
-
-      {:ok, value} when is_binary(value) ->
-        case Duration.from_iso8601(value) do
-          {:ok, value} -> {:ok, %{default: value}}
-          _ -> {:error, "invalid duration `default` value"}
-        end
-
-      _ ->
-        {:error, "invalid duration `default` value"}
-    end
-  end
-
-  def parse(:float, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, %{default: nil}}
-
-      {:ok, value} when is_float(value) ->
-        {:ok, %{default: value}}
-
-      {:ok, value} when is_integer(value) ->
-        {:ok, %{default: value + 0.0}}
-
-      {:ok, value} when is_binary(value) ->
-        case Float.parse(value) do
-          {float, ""} -> {:ok, %{default: float}}
-          _ -> {:error, "non-float `default` value"}
-        end
-
-      _ ->
-        {:error, "non-float `default` value"}
-    end
-  end
-
-  def parse(:log_level, opts) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, %{default: nil}}
-
-      {:ok, value} when is_atom(value) and value in @log_levels ->
-        {:ok, %{default: value}}
-
-      {:ok, value} when is_binary(value) ->
-        if level = @log_levels_map[value] do
-          {:ok, %{default: level}}
-        else
-          {:error, "invalid `default` value #{value}"}
-        end
+        {:ok, Map.put(config, :default, unset)}
 
       {:ok, value} ->
-        {:error, "invalid `default` value #{inspect(value)}"}
-    end
-  end
-
-  def parse(:integer, opts) do
-    with {:ok, base} <- integer_base(opts),
-         {:ok, default} <- integer_default(opts, base) do
-      {:ok, %{default: default, base: base}}
-    end
-  end
-
-  def parse(:json, opts) do
-    with {:ok, default} <- json_default(opts),
-         {:ok, engine} <- json_engine(opts) do
-      {:ok, %{default: default, engine: engine}}
-    end
-  end
-
-  def parse(type, opts) when type in [:module, :safe_module] do
-    with {:ok, allowed} <- module_allowed(opts),
-         {:ok, default} <- atom_default(opts, allowed) do
-      {:ok, %{default: default, allowed: allowed}}
-    end
-  end
-
-  def parse(:pem, opts) do
-    case Keyword.fetch(opts, :filter) do
-      :error -> {:ok, %{filter: true}}
-      {:ok, value} when value in [:cert, :key, false, true] -> {:ok, %{filter: value}}
-      _ -> {:error, "invalid `filter` value"}
-    end
-  end
-
-  def parse(type, _opts) when type in [:erlang, :elixir], do: {:ok, %{}}
-
-  def parse(:base16, opts), do: decode_opts(opts, :case)
-
-  def parse(base32, opts) when base32 in [:base32, :hex32], do: decode_opts(opts, [:case, :padding])
-
-  def parse(base64, opts) when base64 in [:base64, :url_base64], do: decode_opts(opts, [:whitespace, :padding])
-
-  def parse(:list, opts) do
-    with {:ok, config} <- decode_opts(opts, [:delimiter, :parts, :trim, :on, :include_captures]) do
-      case Keyword.fetch(opts, :default) do
-        :error -> {:ok, config}
-        {:ok, value} when is_list(value) -> {:ok, Map.put(config, :default, value)}
-        _ -> {:error, "non-list `default` value"}
-      end
-    end
-  end
-
-  if Code.ensure_loaded?(Decimal) do
-    defguardp is_json(value)
-              when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
-                     is_number(value) or is_struct(value, Decimal)
-  else
-    defguardp is_json(value)
-              when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
-                     is_number(value)
-  end
-
-  defp decode_opts(opts, keys) do
-    result =
-      keys
-      |> List.wrap()
-      |> Enum.reduce_while([], &decode_opt(opts, &1, &2))
-
-    case result do
-      {:error, reason} -> {:error, reason}
-      result when is_list(result) -> {:ok, %{decode_opts: result}}
-    end
-  end
-
-  defp decode_opt(opts, :case, decode_opts) do
-    case Keyword.get(opts, :case, :mixed) do
-      value when value in [:upper, :lower, :mixed] -> {:cont, Keyword.put(decode_opts, :case, value)}
-      _ -> {:halt, {:error, "invalid `case` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :padding, decode_opts) do
-    case Keyword.get(opts, :padding, false) do
-      value when is_boolean(value) -> {:cont, Keyword.put(decode_opts, :padding, value)}
-      _ -> {:halt, {:error, "invalid `padding` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :whitespace, decode_opts) do
-    case Keyword.get(opts, :ignore_whitespace, true) do
-      true -> {:cont, Keyword.put(decode_opts, :ignore, :whitespace)}
-      false -> {:cont, decode_opts}
-      _ -> {:halt, {:error, "invalid `ignore_whitespace` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :delimiter, decode_opts) do
-    case Keyword.get(opts, :delimiter, ",") do
-      value when is_binary(value) or is_list(value) or is_struct(value, Regex) or is_tuple(value) ->
-        {:cont, Keyword.put(decode_opts, :delimiter, value)}
-
-      _ ->
-        {:halt, {:error, "invalid `delimiter` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :parts, decode_opts) do
-    case Keyword.fetch(opts, :parts) do
-      :error -> {:cont, decode_opts}
-      {:ok, :infinity} -> {:cont, Keyword.put(decode_opts, :parts, :infinity)}
-      {:ok, value} when is_integer(value) and value > 0 -> {:cont, Keyword.put(decode_opts, :parts, value)}
-      _ -> {:halt, {:error, "invalid `parts` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :trim, decode_opts) do
-    case Keyword.fetch(opts, :trim) do
-      :error -> {:cont, decode_opts}
-      {:ok, value} when is_boolean(value) -> {:cont, Keyword.put(decode_opts, :trim, value)}
-      _ -> {:halt, {:error, "invalid `trim` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :on, decode_opts) do
-    case Keyword.fetch(opts, :on) do
-      :error ->
-        {:cont, decode_opts}
-
-      {:ok, atom} when atom in [:all, :first, :all_but_first, :none, :all_names] ->
-        {:cont, Keyword.put(decode_opts, :on, atom)}
-
-      {:ok, list} when is_list(list) ->
-        {:cont, Keyword.put(decode_opts, :on, list)}
-
-      _ ->
-        {:halt, {:error, "invalid `on` value"}}
-    end
-  end
-
-  defp decode_opt(opts, :include_captures, decode_opts) do
-    case Keyword.fetch(opts, :include_captures) do
-      :error ->
-        {:cont, decode_opts}
-
-      {:ok, value} when is_boolean(value) ->
-        {:cont, Keyword.put(decode_opts, :include_captures, value)}
-
-      _ ->
-        {:halt, {:error, "invalid `include_captures` value"}}
-    end
-  end
-
-  defp atom_allowed(opts) do
-    case Keyword.fetch(opts, :allowed) do
-      :error ->
-        {:ok, nil}
-
-      {:ok, []} ->
-        {:error, "`allowed` cannot be empty"}
-
-      {:ok, [_ | _] = allowed} ->
-        if Enum.all?(allowed, &is_atom/1) do
-          {:ok, Map.new(allowed, &{Atom.to_string(&1), &1})}
-        else
-          {:error, "`allowed` must be an atom list"}
+        with {:ok, default} <- default(type, value, config) do
+          {:ok, Map.put(config, :default, default)}
         end
-
-      _ ->
-        {:error, "`allowed` must be an atom list"}
     end
   end
 
-  defp atom_default(opts, allowed) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, nil}
-      {:ok, value} -> atom_default_allowed(value, allowed)
+  # --- defaults
+
+  defp default(type, value, %{allowed: allowed}) when is_map(allowed) and type in [:atom, :safe_atom] do
+    lookup = if is_atom(value), do: Atom.to_string(value), else: value
+    allowed_default(allowed, lookup)
+  end
+
+  defp default(type, value, %{allowed: allowed}) when is_map(allowed) and type in [:module, :safe_module] do
+    lookup = if is_atom(value), do: inspect(value), else: value
+    allowed_default(allowed, lookup)
+  end
+
+  defp default(type, value, _config) when type in [:atom, :safe_atom, :module, :safe_module] and is_atom(value),
+    do: {:ok, value}
+
+  # sobelow_skip ["DOS.StringToAtom"]
+  defp default(:atom, value, _config) do
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    {:ok, String.to_atom(value)}
+  end
+
+  defp default(:safe_atom, value, _config) do
+    {:ok, String.to_existing_atom(value)}
+  rescue
+    ArgumentError -> {:error, :default, "`:default` is not an existing atom"}
+  end
+
+  # sobelow_skip ["DOS.ModuleConcat"]
+  defp default(:module, value, _config) do
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
+    {:ok, Module.concat([value])}
+  end
+
+  defp default(:safe_module, value, _config) do
+    {:ok, Module.safe_concat([value])}
+  rescue
+    ArgumentError -> {:error, :default, "`:default` is not an existing module"}
+  end
+
+  defp default(:charlist, value, _config) when is_binary(value), do: {:ok, String.to_charlist(value)}
+
+  defp default(:decimal, value, _config) when is_struct(value), do: {:ok, value}
+  defp default(:decimal, value, _config) when is_integer(value), do: {:ok, Decimal.new(value)}
+  defp default(:decimal, value, _config) when is_float(value), do: {:ok, Decimal.from_float(value)}
+
+  defp default(:decimal, value, _config) do
+    case Decimal.parse(value) do
+      {decimal, ""} -> {:ok, decimal}
+      _ -> {:error, :default, "`:default` is not a valid decimal"}
     end
   end
 
-  defp atom_default_allowed(value, nil) when is_atom(value), do: {:ok, value}
-
-  defp atom_default_allowed(value, allowed) when is_atom(value) and is_map(allowed) do
-    if value in Map.values(allowed) do
-      {:ok, value}
-    else
-      {:error, "`default` value '#{value}' not present in `allowed`"}
-    end
-  end
-
-  defp atom_default_allowed(value, allowed) when is_binary(value) and is_map(allowed) do
-    if atom = allowed[value] do
-      {:ok, atom}
-    else
-      {:error, "`default` value '#{value}' not present in `allowed`"}
-    end
-  end
-
-  defp atom_default_allowed(_value, _allowed), do: {:error, "non-atom `default` value"}
-
-  defp boolean_default(opts) do
-    case Keyword.get(opts, :default, false) do
-      value when is_boolean(value) -> {:ok, value}
-      _ -> {:error, "non-boolean `default` value"}
-    end
-  end
-
-  defp boolean_matchers(opts) do
-    case {Keyword.get(opts, :truthy), Keyword.get(opts, :falsy)} do
-      {nil, nil} -> {:ok, {~w[1 true], nil}}
-      {[_ | _] = truthy, nil} -> {:ok, {truthy, nil}}
-      {nil, [_ | _] = falsy} -> {:ok, {nil, falsy}}
-      _ -> {:error, "`truthy` and `falsy` options both provided"}
-    end
-  end
-
-  defp integer_base(opts) do
-    case Keyword.get(opts, :base, 10) do
-      base when is_integer(base) and base >= 2 and base <= 36 -> {:ok, base}
-      _ -> {:error, "invalid `base` value (must be an integer 2..36)"}
-    end
-  end
-
-  defp integer_default(opts, base) do
-    case Keyword.fetch(opts, :default) do
-      :error ->
-        {:ok, nil}
-
-      {:ok, value} when is_integer(value) ->
-        {:ok, value}
-
-      {:ok, value} when is_binary(value) ->
-        case Integer.parse(value, base) do
-          {integer, ""} -> {:ok, integer}
-          _ -> {:error, "non-integer `default` value for base #{base}"}
-        end
-
-      _ ->
-        {:error, "non-integer `default` value"}
-    end
-  end
-
-  defp json_default(opts) do
-    case Keyword.fetch(opts, :default) do
-      :error -> {:ok, nil}
-      {:ok, value} when is_json(value) -> {:ok, value}
-      _ -> {:error, "non-JSON `default` value"}
-    end
-  end
-
-  defp json_engine(opts) do
-    case Keyword.fetch(opts, :engine) do
-      :error -> {:ok, @default_engine}
-      {:ok, engine} when is_atom(engine) or is_function(engine, 1) -> {:ok, engine}
-      {:ok, {m, f, a} = engine} when is_atom(m) and is_atom(f) and is_list(a) -> {:ok, engine}
-      _ -> {:error, "invalid `engine` value"}
-    end
-  end
-
-  defp module_allowed(opts) do
-    case atom_allowed(opts) do
-      {:ok, allowed} -> {:ok, module_lookup(allowed)}
-      error -> error
-    end
-  end
-
-  defp module_lookup(nil), do: nil
-
-  defp module_lookup(allowed) do
-    allowed
-    |> Enum.flat_map(fn {key, mod} -> [{key, mod}, {String.replace_prefix(key, "Elixir.", ""), mod}] end)
-    |> Map.new()
-  end
-
-  defp opt_boolean_casefold(opts, default) do
-    case Keyword.get(opts, :downcase, default) do
-      true -> {:ok, {:downcase, :default}}
-      atom when atom in [false, :default, :ascii, :greek, :turkic] -> {:ok, {:downcase, atom}}
-      _ -> {:error, "invalid `downcase` value"}
-    end
-  end
-
-  defp opt_casefold(opts) do
-    case {Keyword.fetch(opts, :downcase), Keyword.fetch(opts, :upcase)} do
-      {:error, :error} ->
-        {:ok, {:downcase, false}}
-
-      {{:ok, _}, {:ok, _}} ->
-        {:error, "`downcase` and `upcase` options both provided"}
-
-      {{:ok, true}, _} ->
-        {:ok, {:downcase, :default}}
-
-      {{:ok, value}, _} when value in [false, :default, :ascii, :greek, :turkic] ->
-        {:ok, {:downcase, value}}
-
-      {{:ok, _}, _} ->
-        {:error, "invalid `downcase` value"}
-
-      {_, {:ok, true}} ->
-        {:ok, {:upcase, :default}}
-
-      {_, {:ok, value}} when value in [false, :default, :ascii, :greek, :turkic] ->
-        {:ok, {:upcase, value}}
-
-      {_, {:ok, _}} ->
-        {:error, "invalid `upcase` value"}
-    end
-  end
-
-  defp parse_timeout_default(:infinity), do: {:ok, %{default: :infinity}}
-  defp parse_timeout_default(value) when is_struct(value, Duration), do: {:ok, %{default: to_timeout(value)}}
-  defp parse_timeout_default(value) when is_integer(value) and value >= 0, do: {:ok, %{default: to_timeout(value)}}
-
-  defp parse_timeout_default(value) when is_list(value) do
-    case Keyword.validate(value, [:week, :day, :hour, :minute, :second, :millisecond]) do
-      {:ok, _} -> {:ok, %{default: to_timeout(value)}}
-      _ -> {:error, "invalid timeout `default` value"}
-    end
-  end
-
-  defp parse_timeout_default(value) when is_binary(value) do
+  defp default(:duration, value, _config) when is_binary(value) do
     case Duration.from_iso8601(value) do
-      {:ok, value} ->
-        {:ok, %{default: to_timeout(value)}}
+      {:ok, duration} -> {:ok, duration}
+      _ -> {:error, :default, "`:default` is not a valid ISO 8601 duration"}
+    end
+  end
+
+  defp default(:float, value, _config) when is_integer(value), do: {:ok, value + 0.0}
+
+  defp default(:float, value, _config) when is_binary(value) do
+    case Float.parse(value) do
+      {float, ""} -> {:ok, float}
+      _ -> {:error, :default, "`:default` is not a valid float"}
+    end
+  end
+
+  defp default(:integer, value, %{base: base}) when is_binary(value) do
+    case Integer.parse(value, base) do
+      {integer, ""} -> {:ok, integer}
+      _ -> {:error, :default, "`:default` is not a valid base #{base} integer"}
+    end
+  end
+
+  defp default(:log_level, value, _config) when is_binary(value) do
+    case Map.fetch(@log_levels_map, String.downcase(value)) do
+      {:ok, level} -> {:ok, level}
+      :error -> {:error, :default, "`:default` is not a valid log level"}
+    end
+  end
+
+  defp default(:timeout, :infinity, _config), do: {:ok, :infinity}
+  defp default(:timeout, value, _config) when is_binary(value), do: timeout_default(value)
+
+  defp default(:timeout, value, _config) do
+    {:ok, to_timeout(value)}
+  rescue
+    ArgumentError -> {:error, :default, "`:default` is not a valid timeout"}
+  end
+
+  defp default(_type, value, _config), do: {:ok, value}
+
+  defp allowed_default(allowed, lookup) do
+    case Map.fetch(allowed, lookup) do
+      {:ok, value} -> {:ok, value}
+      :error -> {:error, :default, "`:default` is not present in `:allowed`"}
+    end
+  end
+
+  defp timeout_default(value) do
+    case Duration.from_iso8601(value) do
+      {:ok, duration} ->
+        {:ok, to_timeout(duration)}
 
       _ ->
         case TimeoutParser.parse(value) do
-          {:ok, value} -> {:ok, %{default: to_timeout(value)}}
-          _ -> {:error, "invalid timeout `default` value"}
+          {:ok, parsed} -> {:ok, to_timeout(parsed)}
+          _ -> {:error, :default, "`:default` is not a valid timeout"}
         end
     end
   end
 
-  defp parse_timeout_default(_), do: {:error, "invalid timeout `default` value"}
+  # --- cross-key checks and lookup tables
+
+  defp casefold(%{downcase: _, upcase: _}),
+    do: {:error, [:downcase, :upcase], "`:downcase` and `:upcase` are mutually exclusive"}
+
+  defp casefold(%{downcase: mode}), do: {:ok, {:downcase, casefold_mode(mode)}}
+  defp casefold(%{upcase: mode}), do: {:ok, {:upcase, casefold_mode(mode)}}
+  defp casefold(_opts), do: {:ok, {:downcase, false}}
+
+  defp casefold_mode(true), do: :default
+  defp casefold_mode(mode), do: mode
+
+  defp boolean_casefold(true), do: :default
+  defp boolean_casefold(mode), do: mode
+
+  defp allowed(_type, %{allowed: []}), do: {:error, :allowed, "`:allowed` cannot be empty"}
+
+  defp allowed(type, %{allowed: allowed}) when type in [:atom, :safe_atom],
+    do: {:ok, Map.new(allowed, &{Atom.to_string(&1), &1})}
+
+  defp allowed(type, %{allowed: allowed}) when type in [:module, :safe_module] do
+    lookup =
+      Enum.flat_map(allowed, fn module ->
+        key = Atom.to_string(module)
+        [{key, module}, {String.replace_prefix(key, "Elixir.", ""), module}]
+      end)
+
+    {:ok, Map.new(lookup)}
+  end
+
+  defp allowed(_type, _opts), do: {:ok, nil}
+
+  defp boolean_matchers(%{truthy: _, falsy: _}),
+    do: {:error, [:truthy, :falsy], "`:truthy` and `:falsy` are mutually exclusive"}
+
+  defp boolean_matchers(%{truthy: []}), do: {:error, :truthy, "`:truthy` cannot be empty"}
+  defp boolean_matchers(%{falsy: []}), do: {:error, :falsy, "`:falsy` cannot be empty"}
+  defp boolean_matchers(%{truthy: truthy}), do: {:ok, {truthy, nil}}
+  defp boolean_matchers(%{falsy: falsy}), do: {:ok, {nil, falsy}}
+  defp boolean_matchers(_opts), do: {:ok, {~w[1 true], nil}}
 end

@@ -40,7 +40,7 @@ defmodule Enviable do
 
   ### Configuration
 
-  Envible has two compile-time options.
+  Enviable has three compile-time options.
 
   - `:boolean_downcase`: Sets the default value for case-folding boolean conversions. Can
     be set to `:default`, `:ascii`, `:greek`, or `:turkic`. The boolean value `true` will
@@ -70,6 +70,14 @@ defmodule Enviable do
     config :enviable, :json_engine, {Jason, :decode, [[floats: :decimals]]}
     ```
 
+  - `:paranoid`: Whether retrieved environment variables are wrapped in a closure for all
+    functions when using Enviable.Codex. This defaults to `false`, which means that only
+    the `once` family of functions secures the returned value.
+
+    ```elixir
+    config :enviable, :paranoid, true
+    ```
+
   [12f]: https://12factor.net/
   [dotenvy]: https://hexdocs.pm/dotenvy/readme.html
   [jason]: https://hexdocs.pm/jason/readme.html
@@ -78,20 +86,42 @@ defmodule Enviable do
   [nvir]: https://hexdocs.pm/nvir/readme.html
   """
 
+  alias Enviable.Codex
   alias Enviable.Conversion
+  alias Enviable.Conversion.Schema
+  alias Enviable.Value
 
-  @type as_list_opt ::
-          {:as, :string | Conversion.primitive()}
-          | {:delimiter, String.t(), list(String.t()), Regex.t(), :binary.cp()}
-          | {:parts, pos_integer() | :infinity}
-          | {:trim, boolean()}
-          | {:on, :all | :first | :all_but_first | :none | :all_names | list(binary() | atom())}
-          | {:include_captures, boolean()}
-          | {atom(), term()}
+  @doc """
+  Set an environment variable `t:Value.t/0` only if it is not yet set.
+
+  This is a safe wrapper around `get_env/2` piped into `put_env/1`: the current
+  environment value (if any) wins over the `t:Value.t/0`'s inner value, which is used
+  only as the default. If the resolved value is `nil`, the variable is erased.
+
+  See `Enviable.Codex.put_env_new/1`.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.put_env_new(%Enviable.Value{name: "PORT", value: "3000"})
+  :ok
+  iex> Enviable.get_env("PORT")
+  "3000"
+  iex> Enviable.put_env_new(%Enviable.Value{name: "PORT", value: "5000"})
+  :ok
+  iex> Enviable.get_env("PORT")
+  "3000"
+  ```
+  """
+  @doc group: "Env"
+  @spec put_env_new(Value.t()) :: :ok
+  defdelegate put_env_new(value), to: Codex
 
   @doc """
   Set an environment variable value only if it is not yet set. This is a convenience
   wrapper around `System.put_env/2` and `System.get_env/2`.
+
+  See `Enviable.Codex.put_env_new/2`.
 
   ### Examples
 
@@ -106,8 +136,9 @@ defmodule Enviable do
   "3000"
   ```
   """
-  @spec put_env_new(String.t(), String.t()) :: :ok
-  def put_env_new(varname, value), do: put_env(varname, get_env(varname, value))
+  @doc group: "Env"
+  @spec put_env_new(String.t(), String.t() | Value.t()) :: :ok
+  defdelegate put_env_new(name, value), to: Codex
 
   @doc """
   Returns the value of an environment variable converted to the target `type` or a default
@@ -147,6 +178,8 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `get_env_as_safe_module/2`)
 
+  - `:string` (`t:Enviable.Conversion.convert_string/0`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `get_env_as_timeout/2`)
 
   Supported encoded conversions are:
@@ -180,66 +213,65 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as("UNSET", :atom)
+  iex> get_env_as("UNSET", :atom)
   nil
 
-  iex> Enviable.get_env_as("UNSET", :float)
+  iex> get_env_as("UNSET", :float)
   nil
 
-  iex> Enviable.get_env_as("UNSET", :base16)
+  iex> get_env_as("UNSET", :base16)
   nil
 
-  iex> Enviable.put_env("NAME", "get_env_as")
-  iex> Enviable.get_env_as("NAME", :atom)
+  iex> put_env("NAME", "get_env_as")
+  iex> get_env_as("NAME", :atom)
   :get_env_as
 
-  iex> Enviable.put_env("NAME", "GET_ENV_AS")
-  iex> Enviable.get_env_as("NAME", :safe_atom, downcase: true)
+  iex> put_env("NAME", "GET_ENV_AS")
+  iex> get_env_as("NAME", :safe_atom, downcase: true)
   :get_env_as
 
-  iex> Enviable.get_env_as("FLOAT", :float, default: "3.5")
+  iex> get_env_as("FLOAT", :float, default: "3.5")
   3.5
 
-  iex> Enviable.get_env_as("FLOAT", :float, default: 3.5)
+  iex> get_env_as("FLOAT", :float, default: 3.5)
   3.5
 
-  iex> Enviable.put_env("FLOAT", "3")
-  iex> Enviable.get_env_as("FLOAT", :float)
+  iex> put_env("FLOAT", "3")
+  iex> get_env_as("FLOAT", :float)
   3.0
 
-  iex> Enviable.put_env("FLOAT", "3.1")
-  iex> Enviable.get_env_as("FLOAT", :float)
+  iex> put_env("FLOAT", "3.1")
+  iex> get_env_as("FLOAT", :float)
   3.1
 
-  iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
-  iex> Enviable.get_env_as("NAME", :base16, case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> get_env_as("NAME", :base16, case: :lower)
   "RED"
-  iex> Enviable.get_env_as("NAME", {:base16, :string}, case: :lower)
+  iex> get_env_as("NAME", {:base16, :string}, case: :lower)
   "RED"
-  iex> Enviable.get_env_as("NAME", {:base16, :atom}, case: :lower, downcase: true)
+  iex> get_env_as("NAME", {:base16, :atom}, case: :lower, downcase: true)
   :red
 
-  iex> Enviable.put_env("LIST", "1,2,3")
-  iex> Enviable.get_env_as("LIST", :list)
+  iex> put_env("LIST", "1,2,3")
+  iex> get_env_as("LIST", :list)
   ["1", "2", "3"]
-  iex> Enviable.get_env_as("LIST", {:list, :integer})
+  iex> get_env_as("LIST", {:list, :integer})
   [1, 2, 3]
 
-  iex> Enviable.put_env("LIST", "1;2;3")
-  iex> Enviable.get_env_as("LIST", :list, delimiter: ";")
+  iex> put_env("LIST", "1;2;3")
+  iex> get_env_as("LIST", :list, delimiter: ";")
   ["1", "2", "3"]
-  iex> Enviable.get_env_as("LIST", {:list, :integer}, delimiter: ";")
+  iex> get_env_as("LIST", {:list, :integer}, delimiter: ";")
   [1, 2, 3]
   ```
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
   @spec get_env_as(String.t(), Conversion.conversion(), keyword()) :: nil | term()
-  def get_env_as(varname, type, opts \\ []) do
+  def get_env_as(varname, type, opts \\ []) when is_list(opts) do
     varname
-    |> get_env()
-    |> Conversion.convert_as(varname, type, opts)
+    |> Codex.get_env()
+    |> Conversion.convert_as(type, opts)
   end
 
   atom_exhaustion =
@@ -248,16 +280,7 @@ defmodule Enviable do
   atom_options = """
   ### Options
 
-  - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
-    a lookup table, if present. Any value not found will result in an exception.
-
-  - `:default`: The `t:atom/0` or `t:binary/0` value representing the atom value to use if
-    the environment variable is unset (`nil`). If the `:allowed` option is present, the
-    default value must be one of the permitted values.
-
-  - `:downcase`: See `t:Enviable.Conversion.opt_atom_downcase/0`.
-
-  - `:upcase`: See `t:Enviable.Conversion.opt_atom_upcase/0`.
+  #{Schema.docs(:atom)}
 
   A shorthand for the `default` option may be provided as a `t:atom/0` value.
   """
@@ -277,17 +300,17 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_atom("UNSET")
+  iex> get_env_as_atom("UNSET")
   nil
 
-  iex> Enviable.get_env_as_atom("UNSET", :default)
+  iex> get_env_as_atom("UNSET", :default)
   :default
 
-  iex> Enviable.get_env_as_atom("UNSET", default: :default)
+  iex> get_env_as_atom("UNSET", default: :default)
   :default
 
-  iex> Enviable.put_env("NAME", "get_env_as_atom")
-  iex> Enviable.get_env_as_atom("NAME")
+  iex> put_env("NAME", "get_env_as_atom")
+  iex> get_env_as_atom("NAME")
   :get_env_as_atom
   ```
   """
@@ -295,13 +318,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_atom(
           String.t(),
-          atom()
-          | binary()
-          | [
-              {:allowed, list(atom())}
-              | {:default, atom() | binary()}
-              | Conversion.opt_atom_downcase()
-            ]
+          atom() | String.t() | [unquote(Schema.option_typespec(:atom))]
         ) :: nil | atom()
   def get_env_as_atom(varname, opts \\ [])
 
@@ -327,17 +344,17 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_safe_atom("UNSET")
+  iex> get_env_as_safe_atom("UNSET")
   nil
 
-  iex> Enviable.get_env_as_safe_atom("UNSET", :default)
+  iex> get_env_as_safe_atom("UNSET", :default)
   :default
 
-  iex> Enviable.get_env_as_safe_atom("UNSET", default: :default)
+  iex> get_env_as_safe_atom("UNSET", default: :default)
   :default
 
-  iex> Enviable.put_env("NAME", "GET_ENV_AS_SAFE_ATOM")
-  iex> Enviable.get_env_as_safe_atom("NAME", downcase: true)
+  iex> put_env("NAME", "GET_ENV_AS_SAFE_ATOM")
+  iex> get_env_as_safe_atom("NAME", downcase: true)
   :get_env_as_safe_atom
   ```
   """
@@ -345,13 +362,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_safe_atom(
           String.t(),
-          atom()
-          | binary()
-          | [
-              {:allowed, list(atom())}
-              | {:default, atom() | binary()}
-              | Conversion.opt_atom_downcase()
-            ]
+          atom() | String.t() | [unquote(Schema.option_typespec(:safe_atom))]
         ) :: nil | atom()
   def get_env_as_safe_atom(varname, opts \\ [])
 
@@ -371,88 +382,61 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: the default value (which must be `true` or `false`) if the variable is
-    unset. In most cases, when `falsy` is provided, `default: true` should also be
-    provided.
-
-  - `:truthy`: a list of string values to be compared for truth values. If the value of
-    the environment variable matches these values, `true` will be returned; other values
-    will result in `false`. Mutually exclusive with `falsy`.
-
-  - `:falsy`: a list of string values to be compared for false values. If the value of the
-    environment variable matches these values, `false` will be returned; other values will
-    result in `true`. Mutually exclusive with `truthy`.
-
-  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
-    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
-
-    The default `:downcase` value for boolean conversions can be changed at compile time
-    through application configuration:
-
-    ```elixir
-    config :enviable, :boolean_downcase, true
-    config :enviable, :boolean_downcase, :default
-    config :enviable, :boolean_downcase, :ascii
-    ```
+  #{Schema.docs(:boolean)}
 
   A shorthand value for the `default` option may be provided as a `t:boolean/0` value.
 
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_boolean("FLAG")
+  iex> get_env_as_boolean("FLAG")
   false
 
-  iex> Enviable.get_env_as_boolean("FLAG", true)
+  iex> get_env_as_boolean("FLAG", true)
   true
 
-  iex> Enviable.get_env_as_boolean("FLAG", default: true)
+  iex> get_env_as_boolean("FLAG", default: true)
   true
 
-  iex> Enviable.put_env("FLAG", "1")
-  iex> Enviable.get_env_as_boolean("FLAG")
+  iex> put_env("FLAG", "1")
+  iex> get_env_as_boolean("FLAG")
   true
 
-  iex> Enviable.put_env("FLAG", "something")
-  iex> Enviable.get_env_as_boolean("FLAG")
+  iex> put_env("FLAG", "something")
+  iex> get_env_as_boolean("FLAG")
   false
 
-  iex> Enviable.put_env("FLAG", "oui")
-  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "oui")
+  iex> get_env_as_boolean("FLAG", truthy: ["oui"])
   true
 
-  iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "OUI")
+  iex> get_env_as_boolean("FLAG", truthy: ["oui"])
   true
-  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
+  iex> get_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
   false
 
-  iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.get_env_as_boolean("FLAG", falsy: ["non"])
+  iex> put_env("FLAG", "NON")
+  iex> get_env_as_boolean("FLAG", falsy: ["non"])
   false
-  iex> Enviable.get_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
+  iex> get_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
   true
 
-  iex> Enviable.get_env_as_boolean("FLAG", default: nil)
-  ** (ArgumentError) could not convert environment variable "FLAG" to type boolean: non-boolean `default` value
+  iex> get_env_as_boolean("FLAG", default: nil)
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: invalid `:default` value (expected boolean)
 
-  iex> Enviable.get_env_as_boolean("FLAG", downcase: nil)
-  ** (ArgumentError) could not convert environment variable "FLAG" to type boolean: invalid `downcase` value
+  iex> get_env_as_boolean("FLAG", downcase: nil)
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: invalid `:downcase` value (expected boolean or one of :default, :ascii, :greek, :turkic)
 
-  iex> Enviable.get_env_as_boolean("FLAG", truthy: ["oui"], falsy: ["non"])
-  ** (ArgumentError) could not convert environment variable "FLAG" to type boolean: `truthy` and `falsy` options both provided
+  iex> get_env_as_boolean("FLAG", truthy: ["oui"], falsy: ["non"])
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:truthy` and `:falsy` are mutually exclusive
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec get_env_as_boolean(
           String.t(),
-          boolean()
-          | [
-              {:default, boolean()}
-              | Conversion.opt_bool_downcase()
-              | {:truthy | :falsy, list(binary())}
-            ]
+          boolean() | [unquote(Schema.option_typespec(:boolean))]
         ) :: boolean()
   def get_env_as_boolean(varname, opts \\ [])
   def get_env_as_boolean(varname, default) when is_boolean(default), do: get_env_as(varname, :boolean, default: default)
@@ -464,7 +448,7 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value, either as a `t:charlist/0` or `t:binary/0`.
+  #{Schema.docs(:charlist)}
 
   A shorthand for the `default` value may be provided as a `t:binary/0` (there is no guard
   for `t:charlist/0`).
@@ -472,26 +456,29 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_charlist("UNDEFINED")
+  iex> get_env_as_charlist("UNDEFINED")
   nil
 
-  iex> Enviable.get_env_as_charlist("UNDEFINED", "default")
+  iex> get_env_as_charlist("UNDEFINED", "default")
   ~c"default"
 
-  iex> Enviable.get_env_as_charlist("UNDEFINED", default: "default")
+  iex> get_env_as_charlist("UNDEFINED", default: "default")
   ~c"default"
 
-  iex> Enviable.get_env_as_charlist("UNDEFINED", default: ~c"default")
+  iex> get_env_as_charlist("UNDEFINED", default: ~c"default")
   ~c"default"
 
-  iex> Enviable.put_env("NAME", "get_env_as")
-  iex> Enviable.get_env_as_charlist("NAME")
+  iex> put_env("NAME", "get_env_as")
+  iex> get_env_as_charlist("NAME")
   ~c"get_env_as"
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_charlist(String.t(), binary() | [{:default, charlist() | binary()}]) :: nil | charlist()
+  @spec get_env_as_charlist(
+          String.t(),
+          String.t() | [unquote(Schema.option_typespec(:charlist))]
+        ) :: nil | charlist()
   def get_env_as_charlist(varname, opts \\ [])
 
   def get_env_as_charlist(varname, default) when is_binary(default),
@@ -506,12 +493,7 @@ defmodule Enviable do
 
   ### Options
 
-  - `:base`: The base (`2..36`) for integer conversion. Defaults to base `10` like
-    `String.to_integer/2`.
-
-  - `:default`: the default value, which must be either a binary string value or an
-    integer. If provided as a binary, this will be interpreted according to the `base`
-    option provided.
+  #{Schema.docs(:integer)}
 
   A shorthand for the `default` value may be provided as a `t:integer/0` or `t:binary/0`
   value.
@@ -522,41 +504,43 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_integer("PORT")
+  iex> get_env_as_integer("PORT")
   nil
 
-  iex> Enviable.get_env_as_integer("PORT", 5432)
+  iex> get_env_as_integer("PORT", 5432)
   5432
 
-  iex> Enviable.get_env_as_integer("PORT", "5432")
+  iex> get_env_as_integer("PORT", "5432")
   5432
 
-  iex> Enviable.get_env_as_integer("PORT", default: 5432)
+  iex> get_env_as_integer("PORT", default: 5432)
   5432
 
-  iex> Enviable.get_env_as_integer("PORT", default: "5432")
+  iex> get_env_as_integer("PORT", default: "5432")
   5432
 
-  iex> Enviable.get_env_as_integer("PORT", default: 3.5)
-  ** (ArgumentError) could not convert environment variable "PORT" to type integer: non-integer `default` value
+  iex> get_env_as_integer("PORT", default: 3.5)
+  ** (Enviable.OptionError) could not convert environment variable "PORT" to type integer: invalid `:default` value (expected integer or string)
 
-  iex> Enviable.put_env("PORT", "5432")
-  iex> Enviable.get_env_as_integer("PORT")
+  iex> put_env("PORT", "5432")
+  iex> get_env_as_integer("PORT")
   5432
 
-  iex> Enviable.put_env("PORT", "18eb")
-  iex> Enviable.get_env_as_integer("PORT")
+  iex> put_env("PORT", "18eb")
+  iex> get_env_as_integer("PORT")
   ** (Enviable.ConversionError) could not convert environment variable "PORT" to type integer
 
-  iex> Enviable.put_env("PORT", "18EB")
-  iex> Enviable.get_env_as_integer("PORT", base: 16)
+  iex> put_env("PORT", "18EB")
+  iex> get_env_as_integer("PORT", base: 16)
   6379
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_integer(String.t(), integer() | binary() | [{:base, 2..36} | {:default, binary() | integer()}]) ::
-          integer() | nil
+  @spec get_env_as_integer(
+          String.t(),
+          integer() | String.t() | [unquote(Schema.option_typespec(:integer))]
+        ) :: nil | integer()
   def get_env_as_integer(varname, opts \\ [])
 
   def get_env_as_integer(varname, default) when is_binary(default) or is_integer(default),
@@ -571,8 +555,7 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value, either as `t:float/0`, `t:integer/0` (which will be
-    converted to float), or `t:binary/0` (which must parse cleanly as float).
+  #{Schema.docs(:float)}
 
   A shorthand for the `default` value may be provided as a `t:float/0`, `t:integer/0`, or
   `t:binary/0` value.
@@ -580,43 +563,45 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_float("FLOAT")
+  iex> get_env_as_float("FLOAT")
   nil
 
-  iex> Enviable.get_env_as_float("FLOAT", 25.5)
+  iex> get_env_as_float("FLOAT", 25.5)
   25.5
 
-  iex> Enviable.get_env_as_float("FLOAT", 25)
+  iex> get_env_as_float("FLOAT", 25)
   25.0
 
-  iex> Enviable.get_env_as_float("FLOAT", "255")
+  iex> get_env_as_float("FLOAT", "255")
   255.0
 
-  iex> Enviable.get_env_as_float("FLOAT", default: 25.5)
+  iex> get_env_as_float("FLOAT", default: 25.5)
   25.5
 
-  iex> Enviable.get_env_as_float("FLOAT", default: 25)
+  iex> get_env_as_float("FLOAT", default: 25)
   25.0
 
-  iex> Enviable.get_env_as_float("FLOAT", default: "255")
+  iex> get_env_as_float("FLOAT", default: "255")
   255.0
 
-  iex> Enviable.get_env_as_float("FLOAT", default: "3.5R")
-  ** (ArgumentError) could not convert environment variable "FLOAT" to type float: non-float `default` value
+  iex> get_env_as_float("FLOAT", default: "3.5R")
+  ** (Enviable.OptionError) could not convert environment variable "FLOAT" to type float: `:default` is not a valid float
 
-  iex> Enviable.put_env("FLOAT", "1")
-  iex> Enviable.get_env_as_float("FLOAT")
+  iex> put_env("FLOAT", "1")
+  iex> get_env_as_float("FLOAT")
   1.0
 
-  iex> Enviable.put_env("FLOAT", "ff")
-  iex> Enviable.get_env_as_float("FLOAT")
+  iex> put_env("FLOAT", "ff")
+  iex> get_env_as_float("FLOAT")
   ** (Enviable.ConversionError) could not convert environment variable "FLOAT" to type float
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_float(String.t(), float() | integer() | binary() | [{:default, binary() | float() | integer()}]) ::
-          float() | nil
+  @spec get_env_as_float(
+          String.t(),
+          float() | integer() | String.t() | [unquote(Schema.option_typespec(:float))]
+        ) :: nil | float()
   def get_env_as_float(varname, opts \\ [])
 
   def get_env_as_float(varname, default) when is_binary(default) or is_float(default) or is_integer(default),
@@ -631,74 +616,48 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value, which may be any valid JSON type.
-
-  - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
-    a `t:mfa/0`, the variable value will be passed as the first parameter.
-
-    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
-    considered successful. Any other result will be treated as failure.
-
-    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
-    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
-    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
-    be overridden with application configuration, as this example shows using
-    [Thoas][thoas].
-
-    ```elixir
-    import Config
-
-    config :enviable, :json_engine, :thoas
-    ```
-
-  [jp]: https://hexdocs.pm/json_polyfill/readme.html
-  [jason]: https://hexdocs.pm/jason/readme.html
-  [thoas]: https://hexdocs.pm/thoas/readme.html
+  #{Schema.docs(:json)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_json("JSON")
+  iex> get_env_as_json("JSON")
   nil
 
-  iex> Enviable.get_env_as_json("JSON", default: "3.5R")
+  iex> get_env_as_json("JSON", default: "3.5R")
   "3.5R"
 
-  iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
-  iex> Enviable.get_env_as_json("JSON", engine: &Jason.decode!/1)
+  iex> put_env("JSON", ~S|[{"foo":"bar"}]|)
+  iex> get_env_as_json("JSON", engine: &Jason.decode!/1)
   [%{"foo" => "bar"}]
 
-  iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
-  iex> Enviable.get_env_as_json("JSON")
+  iex> put_env("JSON", ~S|[{"foo":"bar"}]|)
+  iex> get_env_as_json("JSON")
   [%{"foo" => "bar"}]
 
-  iex> Enviable.put_env("JSON", "ff")
-  iex> Enviable.get_env_as_json("JSON")
+  iex> put_env("JSON", "ff")
+  iex> get_env_as_json("JSON")
   ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
 
-  iex> Enviable.put_env("JSON", "ff")
-  iex> Enviable.get_env_as_json("JSON", engine: &Jason.decode!/1)
+  iex> put_env("JSON", "ff")
+  iex> get_env_as_json("JSON", engine: &Jason.decode!/1)
   ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_json(String.t(), [
-          {:default, Conversion.json()}
-          | {:engine, module() | (String.t() -> Conversion.json())}
-        ]) :: Conversion.json() | nil
-  def get_env_as_json(varname, opts \\ []), do: get_env_as(varname, :json, opts)
+  @spec get_env_as_json(
+          String.t(),
+          [unquote(Schema.option_typespec(:json))]
+        ) :: Conversion.json()
+  def get_env_as_json(varname, opts \\ []) do
+    get_env_as(varname, :json, opts)
+  end
 
   module_options = """
   ### Options
 
-  - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
-    a lookup table, if present. Any value not found will result in an exception.
-
-  - `:default`: The `t:module/0` or `t:binary/0` value representing the atom value to use
-    if the environment variable is unset (`nil`). If the `:allowed` option is present, the
-    default value must be one of the permitted values.
+  #{Schema.docs(:module)}
 
   A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0`
   value.
@@ -719,14 +678,14 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_module("UNSET")
+  iex> get_env_as_module("UNSET")
   nil
 
-  iex> Enviable.get_env_as_module("UNSET", Enviable)
+  iex> get_env_as_module("UNSET", Enviable)
   Elixir.Enviable
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.get_env_as_module("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> get_env_as_module("NAME")
   Elixir.Enviable
   ```
   """
@@ -734,9 +693,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_module(
           String.t(),
-          module()
-          | binary()
-          | [{:allowed, list(module())} | {:default, module() | binary()}]
+          module() | String.t() | [unquote(Schema.option_typespec(:module))]
         ) :: nil | module()
   def get_env_as_module(varname, opts \\ [])
 
@@ -762,14 +719,14 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_safe_module("UNSET")
+  iex> get_env_as_safe_module("UNSET")
   nil
 
-  iex> Enviable.get_env_as_safe_module("UNSET", Enviable)
+  iex> get_env_as_safe_module("UNSET", Enviable)
   Elixir.Enviable
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.get_env_as_safe_module("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> get_env_as_safe_module("NAME")
   Elixir.Enviable
   ```
   """
@@ -777,9 +734,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_safe_module(
           String.t(),
-          binary()
-          | module()
-          | [{:allowed, list(module())} | {:default, module() | binary()}]
+          module() | String.t() | [unquote(Schema.option_typespec(:safe_module))]
         ) :: nil | module()
   def get_env_as_safe_module(varname, opts \\ [])
 
@@ -795,7 +750,7 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value. Must be a valid value.
+  #{Schema.docs(:log_level)}
 
   A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0`
   value.
@@ -803,29 +758,32 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL")
+  iex> get_env_as_log_level("LOG_LEVEL")
   nil
 
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL", :error)
+  iex> get_env_as_log_level("LOG_LEVEL", :error)
   :error
 
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL", "info")
+  iex> get_env_as_log_level("LOG_LEVEL", "info")
   :info
 
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL", default: :error)
+  iex> get_env_as_log_level("LOG_LEVEL", default: :error)
   :error
 
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL", default: "info")
+  iex> get_env_as_log_level("LOG_LEVEL", default: "info")
   :info
 
-  iex> Enviable.put_env("LOG_LEVEL", "critical")
-  iex> Enviable.get_env_as_log_level("LOG_LEVEL")
+  iex> put_env("LOG_LEVEL", "critical")
+  iex> get_env_as_log_level("LOG_LEVEL")
   :critical
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_log_level(String.t(), [{:default, Conversion.log_level()}]) :: nil | Conversion.log_level()
+  @spec get_env_as_log_level(
+          String.t(),
+          Conversion.log_level() | String.t() | [unquote(Schema.option_typespec(:log_level))]
+        ) :: nil | Conversion.log_level()
   def get_env_as_log_level(varname, opts \\ [])
 
   def get_env_as_log_level(varname, default) when is_binary(default) or is_atom(default),
@@ -839,36 +797,28 @@ defmodule Enviable do
 
   ### Options
 
-  - `:filter`: Filters the output of `:public_key.pem_decode/1`. Permitted values are
-    `false`, `true`, `:cert`, or `:key`. The default is `true`.
-
-    - `false`: the list is returned without processing, suitable for further processing
-      with `:public_key.pem_entry_decode/2`.
-
-    - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
-      `:Certificate` records, or an empty list.
-
-    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
-      exception if none are found.
-
-    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
-      exception if one is not found.
+  #{Schema.docs(:pem)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_pem("PEM")
+  iex> get_env_as_pem("PEM")
   nil
 
-  iex> Enviable.put_env("PEM", "")
-  iex> Enviable.get_env_as_pem("PEM")
+  iex> put_env("PEM", "")
+  iex> get_env_as_pem("PEM")
   []
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec get_env_as_pem(String.t(), [{:filter, boolean() | :cert | :key}]) :: nil | Conversion.pem()
-  def get_env_as_pem(varname, opts \\ []), do: get_env_as(varname, :pem, opts)
+  @spec get_env_as_pem(
+          String.t(),
+          [unquote(Schema.option_typespec(:pem))]
+        ) :: nil | Conversion.pem()
+  def get_env_as_pem(varname, opts \\ []) do
+    get_env_as(varname, :pem, opts)
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Erlang code, or
@@ -887,18 +837,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_erlang("TERM")
+  iex> get_env_as_erlang("TERM")
   nil
 
-  iex> Enviable.put_env("TERM", "{ok, true}.")
-  iex> Enviable.get_env_as_erlang("TERM")
+  iex> put_env("TERM", "{ok, true}.")
+  iex> get_env_as_erlang("TERM")
   {:ok, true}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec get_env_as_erlang(String.t()) :: nil | term()
-  def get_env_as_erlang(varname), do: get_env_as(varname, :erlang, [])
+  def get_env_as_erlang(varname) do
+    get_env_as(varname, :erlang, [])
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Elixir code, or
@@ -917,18 +869,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_elixir("TERM")
+  iex> get_env_as_elixir("TERM")
   nil
 
-  iex> Enviable.put_env("TERM", "11000..11100//3")
-  iex> Enviable.get_env_as_elixir("TERM")
+  iex> put_env("TERM", "11000..11100//3")
+  iex> get_env_as_elixir("TERM")
   11000..11100//3
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec get_env_as_elixir(String.t()) :: nil | term()
-  def get_env_as_elixir(varname), do: get_env_as(varname, :elixir, [])
+  def get_env_as_elixir(varname) do
+    get_env_as(varname, :elixir, [])
+  end
 
   @doc """
   Returns the value of an environment variable decoded from a base 16 string or `nil` if
@@ -936,46 +890,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default value is `:mixed`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base16, as: :encoded)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.get_env_as_base16("NAME")
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> get_env_as_base16("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.get_env_as_base16("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> get_env_as_base16("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.get_env_as_base16("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> get_env_as_base16("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.get_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> get_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_base16(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {atom(), term()}
-        ]) :: nil | term()
+  @spec get_env_as_base16(
+          String.t(),
+          [unquote(Schema.option_typespec(:base16, as: :encoded))]
+        ) :: nil | term()
   def get_env_as_base16(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -992,50 +934,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
-    is `false` (the opposite of `Base.decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base32, as: :encoded)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_base32("NAME")
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> get_env_as_base32("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_base32("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> get_env_as_base32("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_base32("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> get_env_as_base32("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> get_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_base32(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: nil | term()
+  @spec get_env_as_base32(
+          String.t(),
+          [unquote(Schema.option_typespec(:base32, as: :encoded))]
+        ) :: nil | term()
   def get_env_as_base32(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1052,50 +978,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default is
-    `false` (the opposite of `Base.hex_decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:hex32, as: :encoded)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_hex32("NAME")
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> get_env_as_hex32("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_hex32("NAME", case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> get_env_as_hex32("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_hex32("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> get_env_as_hex32("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.get_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> get_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_hex32(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: nil | term()
+  @spec get_env_as_hex32(
+          String.t(),
+          [unquote(Schema.option_typespec(:hex32, as: :encoded))]
+        ) :: nil | term()
   def get_env_as_hex32(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1112,50 +1022,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base64, as: :encoded)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.get_env_as_base64("NAME")
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> get_env_as_base64("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.get_env_as_base64("NAME", padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> get_env_as_base64("NAME", padding: false)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.get_env_as_base64("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> get_env_as_base64("NAME", as: :string, padding: true)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.get_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> get_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_base64(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:ignore_whitespace, boolean()}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: nil | term()
+  @spec get_env_as_base64(
+          String.t(),
+          [unquote(Schema.option_typespec(:base64, as: :encoded))]
+        ) :: nil | term()
   def get_env_as_base64(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1172,50 +1066,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:url_base64, as: :encoded)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.get_env_as_url_base64("NAME")
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> get_env_as_url_base64("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.get_env_as_url_base64("NAME", padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> get_env_as_url_base64("NAME", padding: false)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.get_env_as_url_base64("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> get_env_as_url_base64("NAME", as: :string, padding: true)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.get_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> get_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_url_base64(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:ignore_whitespace, boolean()}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: nil | term()
+  @spec get_env_as_url_base64(
+          String.t(),
+          [unquote(Schema.option_typespec(:url_base64, as: :encoded))]
+        ) :: nil | term()
   def get_env_as_url_base64(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1231,52 +1109,30 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Each entry must conform to the permitted
-    type provided in `:as`.
-
-  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
-    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
-    a regular expression). Defaults to `","`.
-
-  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
-    `:infinity`). Passed to `String.split/3`.
-
-  - `:trim`: A boolean option whether empty entries should be omitted.
-
-  When the pattern is a regular expression, `Regex.split/3` options are also supported:
-
-  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
-    :first which means captures inside the regex do not affect the splitting process.
-
-  - `:include_captures`: when true, includes in the result the matches of the regular
-    expression. The matches are not counted towards the maximum number of parts if
-    combined with the `:parts` option. Defaults to `false`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:list, as: :list)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("LIST", "1,2,3")
-  iex> Enviable.get_env_as_list("LIST")
+  iex> put_env("LIST", "1,2,3")
+  iex> get_env_as_list("LIST")
   ["1", "2", "3"]
-  iex> Enviable.get_env_as_list("LIST", as: :integer)
+  iex> get_env_as_list("LIST", as: :integer)
   [1, 2, 3]
 
-  iex> Enviable.put_env("LIST", "1;2;3")
-  iex> Enviable.get_env_as_list("LIST", delimiter: ";")
+  iex> put_env("LIST", "1;2;3")
+  iex> get_env_as_list("LIST", delimiter: ";")
   ["1", "2", "3"]
-  iex> Enviable.get_env_as_list("LIST", as: :integer, delimiter: ";")
+  iex> get_env_as_list("LIST", as: :integer, delimiter: ";")
   [1, 2, 3]
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec get_env_as_list(String.t(), [{:default, term()} | as_list_opt()]) :: nil | list()
+  @spec get_env_as_list(
+          String.t(),
+          [Conversion.as_list_opt()]
+        ) :: nil | list()
   def get_env_as_list(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1324,6 +1180,8 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module/2`)
 
+  - `:string` (`t:Enviable.Conversion.convert_string/0`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout/1`)
 
   Supported encoded conversions are:
@@ -1338,73 +1196,70 @@ defmodule Enviable do
 
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list/2`)
 
-  See `Enviable.Conversion` for supported type conversions and options, but note that any
-  `default` values are ignored for `fetch_env_as/3` and related `fetch_env_as_*`
+  See `Enviable.Conversion` for supported type conversions and options. Any provided
+  `:default` value is ignored in `fetch_env_as/3` and the related `fetch_env_as_*`
   functions.
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as("UNSET", :atom)
+  iex> fetch_env_as("UNSET", :atom)
   :error
 
-  iex> Enviable.fetch_env_as("UNSET", :float)
+  iex> fetch_env_as("UNSET", :float)
   :error
 
-  iex> Enviable.fetch_env_as("UNSET", :base16)
+  iex> fetch_env_as("UNSET", :base16)
   :error
 
-  iex> Enviable.put_env("NAME", "fetch_env_as")
-  iex> Enviable.fetch_env_as("NAME", :atom)
+  iex> put_env("NAME", "fetch_env_as")
+  iex> fetch_env_as("NAME", :atom)
   {:ok, :fetch_env_as}
 
-  iex> Enviable.put_env("NAME", "FETCH_ENV_AS")
-  iex> Enviable.fetch_env_as("NAME", :safe_atom, downcase: true)
+  iex> put_env("NAME", "FETCH_ENV_AS")
+  iex> fetch_env_as("NAME", :safe_atom, downcase: true)
   {:ok, :fetch_env_as}
 
-  iex> Enviable.fetch_env_as("UNSET", :float, default: "3.5")
+  iex> fetch_env_as("UNSET", :float, default: "3.5")
   :error
 
-  iex> Enviable.fetch_env_as("UNSET", :float, default: 3.5)
+  iex> fetch_env_as("UNSET", :float, default: 3.5)
   :error
 
-  iex> Enviable.put_env("FLOAT", "3")
-  iex> Enviable.fetch_env_as("FLOAT", :float)
+  iex> put_env("FLOAT", "3")
+  iex> fetch_env_as("FLOAT", :float)
+  {:ok, 3.0}
+  iex> fetch_env_as("FLOAT", :float, default: :not_a_float)
   {:ok, 3.0}
 
-  iex> Enviable.put_env("FLOAT", "3.1")
-  iex> Enviable.fetch_env_as("FLOAT", :float)
+  iex> put_env("FLOAT", "3.1")
+  iex> fetch_env_as("FLOAT", :float)
   {:ok, 3.1}
 
   iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
-  iex> Enviable.fetch_env_as("NAME", :base16, case: :lower)
+  iex> put_env("NAME", red)
+  iex> fetch_env_as("NAME", :base16, case: :lower)
   {:ok, "RED"}
-  iex> Enviable.fetch_env_as("NAME", {:base16, :string}, case: :lower)
+  iex> fetch_env_as("NAME", {:base16, :string}, case: :lower)
   {:ok, "RED"}
-  iex> Enviable.fetch_env_as("NAME", {:base16, :atom}, case: :lower, downcase: true)
+  iex> fetch_env_as("NAME", {:base16, :atom}, case: :lower, downcase: true)
   {:ok, :red}
   ```
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
   @spec fetch_env_as(String.t(), Conversion.conversion(), keyword()) :: {:ok, term()} | :error
-  def fetch_env_as(varname, type, opts \\ []) do
-    case fetch_env(varname) do
+  def fetch_env_as(varname, type, opts \\ []) when is_list(opts) do
+    case Codex.fetch_env(varname) do
       :error -> :error
-      {:ok, value} -> {:ok, Conversion.convert_as(value, varname, type, opts)}
+      {:ok, value} -> {:ok, Conversion.convert_as(value, type, Keyword.delete(opts, :default))}
     end
   end
 
   atom_options = """
   ### Options
 
-  - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
-    a lookup table, if present. Any value not found will result in an exception.
-
-  - `:downcase`: See `t:Enviable.Conversion.opt_atom_downcase/0`.
-
-  - `:upcase`: See `t:Enviable.Conversion.opt_atom_upcase/0`.
+  #{Schema.docs(:atom, except: [:default])}
   """
 
   @doc """
@@ -1422,19 +1277,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_atom("UNSET")
+  iex> fetch_env_as_atom("UNSET")
   :error
 
-  iex> Enviable.put_env("NAME", "fetch_env_as_atom")
-  iex> Enviable.fetch_env_as_atom("NAME")
+  iex> put_env("NAME", "fetch_env_as_atom")
+  iex> fetch_env_as_atom("NAME")
   {:ok,  :fetch_env_as_atom}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
-          {:ok, atom()} | :error
-  def fetch_env_as_atom(varname, opts \\ []), do: fetch_env_as(varname, :atom, opts)
+  @spec fetch_env_as_atom(
+          String.t(),
+          [unquote(Schema.option_typespec(:atom, except: [:default]))]
+        ) :: {:ok, atom()} | :error
+  def fetch_env_as_atom(varname, opts \\ []) do
+    fetch_env_as(varname, :atom, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to an existing `t:atom/0` as
@@ -1452,19 +1311,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_safe_atom("UNSET")
+  iex> fetch_env_as_safe_atom("UNSET")
   :error
 
-  iex> Enviable.put_env("NAME", "FETCH_ENV_AS_SAFE_ATOM")
-  iex> Enviable.fetch_env_as_safe_atom("NAME", downcase: true)
+  iex> put_env("NAME", "FETCH_ENV_AS_SAFE_ATOM")
+  iex> fetch_env_as_safe_atom("NAME", downcase: true)
   {:ok, :fetch_env_as_safe_atom}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_atom(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
-          {:ok, atom()} | :error
-  def fetch_env_as_safe_atom(varname, opts \\ []), do: fetch_env_as(varname, :safe_atom, opts)
+  @spec fetch_env_as_safe_atom(
+          String.t(),
+          [unquote(Schema.option_typespec(:safe_atom, except: [:default]))]
+        ) :: {:ok, atom()} | :error
+  def fetch_env_as_safe_atom(varname, opts \\ []) do
+    fetch_env_as(varname, :safe_atom, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:boolean/0` value as
@@ -1476,66 +1339,52 @@ defmodule Enviable do
 
   ### Options
 
-  - `:truthy`: a list of string values to be compared for truth values. If the value of
-    the environment variable matches these values, `true` will be returned; other values
-    will result in `false`. Mutually exclusive with `falsy`.
-
-  - `:falsy`: a list of string values to be compared for false values. If the value of the
-    environment variable matches these values, `false` will be returned; other values will
-    result in `true`. Mutually exclusive with `truthy`.
-
-  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
-    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
-
-    The default `:downcase` value for boolean conversions can be changed at compile time
-    through application configuration:
-
-    ```elixir
-    config :enviable, :boolean_downcase, true
-    config :enviable, :boolean_downcase, :default
-    config :enviable, :boolean_downcase, :ascii
-    ```
+  #{Schema.docs(:boolean, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_boolean("UNSET")
+  iex> fetch_env_as_boolean("UNSET")
   :error
 
-  iex> Enviable.put_env("FLAG", "1")
-  iex> Enviable.fetch_env_as_boolean("FLAG")
+  iex> put_env("FLAG", "1")
+  iex> fetch_env_as_boolean("FLAG")
   {:ok, true}
 
-  iex> Enviable.put_env("FLAG", "something")
-  iex> Enviable.fetch_env_as_boolean("FLAG")
+  iex> put_env("FLAG", "something")
+  iex> fetch_env_as_boolean("FLAG")
   {:ok, false}
 
-  iex> Enviable.put_env("FLAG", "oui")
-  iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "oui")
+  iex> fetch_env_as_boolean("FLAG", truthy: ["oui"])
   {:ok, true}
 
-  iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "OUI")
+  iex> fetch_env_as_boolean("FLAG", truthy: ["oui"])
   {:ok, true}
 
-  iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
+  iex> put_env("FLAG", "OUI")
+  iex> fetch_env_as_boolean("FLAG", truthy: ["oui"], downcase: false)
   {:ok, false}
 
-  iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean("FLAG", falsy: ["non"])
+  iex> put_env("FLAG", "NON")
+  iex> fetch_env_as_boolean("FLAG", falsy: ["non"])
   {:ok, false}
 
-  iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
+  iex> put_env("FLAG", "NON")
+  iex> fetch_env_as_boolean("FLAG", falsy: ["non"], downcase: false)
   {:ok, true}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_boolean(String.t(), [Conversion.opt_bool_downcase() | {:truthy | :falsy, list(binary())}]) ::
-          {:ok, boolean} | :error
-  def fetch_env_as_boolean(varname, opts \\ []), do: fetch_env_as(varname, :boolean, opts)
+  @spec fetch_env_as_boolean(
+          String.t(),
+          [unquote(Schema.option_typespec(:boolean, except: [:default]))]
+        ) :: {:ok, boolean} | :error
+  def fetch_env_as_boolean(varname, opts \\ []) do
+    fetch_env_as(varname, :boolean, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:charlist/0` as
@@ -1544,18 +1393,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_charlist("UNSET")
+  iex> fetch_env_as_charlist("UNSET")
   :error
 
-  iex> Enviable.put_env("NAME", "fetch_env_as")
-  iex> Enviable.fetch_env_as_charlist("NAME")
+  iex> put_env("NAME", "fetch_env_as")
+  iex> fetch_env_as_charlist("NAME")
   {:ok, ~c"fetch_env_as"}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_charlist(String.t()) :: {:ok, charlist()} | :error
-  def fetch_env_as_charlist(varname), do: fetch_env_as(varname, :charlist, [])
+  def fetch_env_as_charlist(varname) do
+    fetch_env_as(varname, :charlist, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:integer/0` value as
@@ -1563,34 +1414,38 @@ defmodule Enviable do
 
   ### Options
 
-  - `:base`: The base (`2..36`) for integer conversion. Defaults to base `10` like
-    `String.to_integer/2`.
+  #{Schema.docs(:integer, except: [:default])}
 
   Failure to parse the value of the environment variable will result in an exception.
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_integer("UNSET")
+  iex> fetch_env_as_integer("UNSET")
   :error
 
-  iex> Enviable.put_env("PORT", "5432")
-  iex> Enviable.fetch_env_as_integer("PORT")
+  iex> put_env("PORT", "5432")
+  iex> fetch_env_as_integer("PORT")
   {:ok, 5432}
 
-  iex> Enviable.put_env("PORT", "18eb")
-  iex> Enviable.fetch_env_as_integer("PORT")
+  iex> put_env("PORT", "18eb")
+  iex> fetch_env_as_integer("PORT")
   ** (Enviable.ConversionError) could not convert environment variable "PORT" to type integer
 
-  iex> Enviable.put_env("PORT", "18EB")
-  iex> Enviable.fetch_env_as_integer("PORT", base: 16)
+  iex> put_env("PORT", "18EB")
+  iex> fetch_env_as_integer("PORT", base: 16)
   {:ok, 6379}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_integer(String.t(), [{:base, 2..36}]) :: {:ok, integer()} | :error
-  def fetch_env_as_integer(varname, opts \\ []), do: fetch_env_as(varname, :integer, opts)
+  @spec fetch_env_as_integer(
+          String.t(),
+          [unquote(Schema.option_typespec(:integer, except: [:default]))]
+        ) :: {:ok, integer()} | :error
+  def fetch_env_as_integer(varname, opts \\ []) do
+    fetch_env_as(varname, :integer, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:float/0` value as
@@ -1599,22 +1454,24 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_float("UNSET")
+  iex> fetch_env_as_float("UNSET")
   :error
 
-  iex> Enviable.put_env("FLOAT", "1")
-  iex> Enviable.fetch_env_as_float("FLOAT")
+  iex> put_env("FLOAT", "1")
+  iex> fetch_env_as_float("FLOAT")
   {:ok, 1.0}
 
-  iex> Enviable.put_env("FLOAT", "ff")
-  iex> Enviable.fetch_env_as_float("FLOAT")
+  iex> put_env("FLOAT", "ff")
+  iex> fetch_env_as_float("FLOAT")
   ** (Enviable.ConversionError) could not convert environment variable "FLOAT" to type float
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_float(String.t()) :: {:ok, float()} | :error
-  def fetch_env_as_float(varname), do: fetch_env_as(varname, :float, [])
+  def fetch_env_as_float(varname) do
+    fetch_env_as(varname, :float, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted to
@@ -1623,55 +1480,37 @@ defmodule Enviable do
 
   ### Options
 
-  - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
-    a `t:mfa/0`, the variable value will be passed as the first parameter.
-
-    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
-    considered successful. Any other result will be treated as failure.
-
-    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
-    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
-    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
-    be overridden with application configuration, as this example shows using
-    [Thoas][thoas].
-
-    ```elixir
-    import Config
-
-    config :enviable, :json_engine, :thoas
-    ```
-
-  [jp]: https://hexdocs.pm/json_polyfill/readme.html
-  [jason]: https://hexdocs.pm/jason/readme.html
-  [thoas]: https://hexdocs.pm/thoas/readme.html
+  #{Schema.docs(:json, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_json("UNSET")
+  iex> fetch_env_as_json("UNSET")
   :error
 
-  iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
-  iex> Enviable.fetch_env_as_json("JSON")
+  iex> put_env("JSON", ~S|[{"foo":"bar"}]|)
+  iex> fetch_env_as_json("JSON")
   {:ok, [%{"foo" => "bar"}]}
 
-  iex> Enviable.put_env("JSON", "ff")
-  iex> Enviable.fetch_env_as_json("JSON")
+  iex> put_env("JSON", "ff")
+  iex> fetch_env_as_json("JSON")
   ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_json(String.t(), [{:engine, module() | (String.t() -> Conversion.json())}]) ::
-          {:ok, Conversion.json()} | :error
-  def fetch_env_as_json(varname, opts \\ []), do: fetch_env_as(varname, :json, opts)
+  @spec fetch_env_as_json(
+          String.t(),
+          [unquote(Schema.option_typespec(:json, except: [:default]))]
+        ) :: {:ok, Conversion.json()} | :error
+  def fetch_env_as_json(varname, opts \\ []) do
+    fetch_env_as(varname, :json, opts)
+  end
 
   module_options = """
   ### Options
 
-  - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
-    a lookup table, if present. Any value not found will result in an exception.
+  #{Schema.docs(:module, except: [:default])}
   """
 
   @doc """
@@ -1689,18 +1528,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_module("UNSET")
+  iex> fetch_env_as_module("UNSET")
   :error
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.fetch_env_as_module("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> fetch_env_as_module("NAME")
   {:ok, Elixir.Enviable}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_module(String.t(), [{:allowed, list(module())}]) :: {:ok, module()} | :error
-  def fetch_env_as_module(varname, opts \\ []), do: fetch_env_as(varname, :module, opts)
+  @spec fetch_env_as_module(
+          String.t(),
+          [unquote(Schema.option_typespec(:module, except: [:default]))]
+        ) :: {:ok, module()} | :error
+  def fetch_env_as_module(varname, opts \\ []) do
+    fetch_env_as(varname, :module, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to `t:module/0` as
@@ -1719,18 +1563,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_safe_module("UNSET")
+  iex> fetch_env_as_safe_module("UNSET")
   :error
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.fetch_env_as_safe_module("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> fetch_env_as_safe_module("NAME")
   {:ok, Elixir.Enviable}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_module(String.t(), [{:allowed, list(module())}]) :: {:ok, module()} | :error
-  def fetch_env_as_safe_module(varname, opts \\ []), do: fetch_env_as(varname, :safe_module, opts)
+  @spec fetch_env_as_safe_module(
+          String.t(),
+          [unquote(Schema.option_typespec(:safe_module, except: [:default]))]
+        ) :: {:ok, module()} | :error
+  def fetch_env_as_safe_module(varname, opts \\ []) do
+    fetch_env_as(varname, :safe_module, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a log level `t:atom/0` for
@@ -1739,18 +1588,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_log_level("UNSET")
+  iex> fetch_env_as_log_level("UNSET")
   :error
 
-  iex> Enviable.put_env("LOG_LEVEL", "critical")
-  iex> Enviable.fetch_env_as_log_level("LOG_LEVEL")
+  iex> put_env("LOG_LEVEL", "critical")
+  iex> fetch_env_as_log_level("LOG_LEVEL")
   {:ok, :critical}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_log_level(String.t()) :: {:ok, Conversion.log_level()} | :error
-  def fetch_env_as_log_level(varname), do: fetch_env_as(varname, :log_level, [])
+  def fetch_env_as_log_level(varname) do
+    fetch_env_as(varname, :log_level, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted from a PEM string through
@@ -1758,36 +1609,28 @@ defmodule Enviable do
 
   ### Options
 
-  - `:filter`: Filters the output of `:public_key.pem_decode/1`. Permitted values are
-    `false`, `true`, `:cert`, or `:key`. The default is `true`.
-
-    - `false`: the list is returned without processing, suitable for further processing
-      with `:public_key.pem_entry_decode/2`.
-
-    - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
-      `:Certificate` records, or an empty list.
-
-    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
-      exception if none are found.
-
-    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
-      exception if one is not found.
+  #{Schema.docs(:pem, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_pem("UNSET")
+  iex> fetch_env_as_pem("UNSET")
   :error
 
-  iex> Enviable.put_env("PEM", "")
-  iex> Enviable.fetch_env_as_pem("PEM")
+  iex> put_env("PEM", "")
+  iex> fetch_env_as_pem("PEM")
   {:ok, []}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_pem(String.t(), [{:filter, boolean() | :cert | :key}]) :: {:ok, Conversion.pem()} | :error
-  def fetch_env_as_pem(varname, opts \\ []), do: fetch_env_as(varname, :pem, opts)
+  @spec fetch_env_as_pem(
+          String.t(),
+          [unquote(Schema.option_typespec(:pem))]
+        ) :: {:ok, Conversion.pem()} | :error
+  def fetch_env_as_pem(varname, opts \\ []) do
+    fetch_env_as(varname, :pem, opts)
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Erlang code with
@@ -1806,18 +1649,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_erlang("UNSET")
+  iex> fetch_env_as_erlang("UNSET")
   :error
 
-  iex> Enviable.put_env("TERM", "{ok, true}.")
-  iex> Enviable.fetch_env_as_erlang("TERM")
+  iex> put_env("TERM", "{ok, true}.")
+  iex> fetch_env_as_erlang("TERM")
   {:ok, {:ok, true}}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_erlang(String.t()) :: {:ok, term()} | :error
-  def fetch_env_as_erlang(varname), do: fetch_env_as(varname, :erlang, [])
+  def fetch_env_as_erlang(varname) do
+    fetch_env_as(varname, :erlang, [])
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Elixir code with
@@ -1836,18 +1681,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_elixir("UNSET")
+  iex> fetch_env_as_elixir("UNSET")
   :error
 
-  iex> Enviable.put_env("TERM", "11000..11100//3")
-  iex> Enviable.fetch_env_as_elixir("TERM")
+  iex> put_env("TERM", "11000..11100//3")
+  iex> fetch_env_as_elixir("TERM")
   {:ok, 11000..11100//3}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_elixir(String.t()) :: {:ok, term()} | :error
-  def fetch_env_as_elixir(varname), do: fetch_env_as(varname, :elixir, [])
+  def fetch_env_as_elixir(varname) do
+    fetch_env_as(varname, :elixir, [])
+  end
 
   @doc """
   Returns the value of an environment variable decoded from a base 16 string as
@@ -1855,46 +1702,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded.
-    Must be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base16, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16("NAME")
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16("NAME")
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16("NAME", case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16("NAME", as: :string, case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base16(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {atom(), term()}
-        ]) :: :error | {:ok, term()}
+  @spec fetch_env_as_base16(
+          String.t(),
+          [unquote(Schema.option_typespec(:base16, as: :encoded, except: [:default]))]
+        ) :: :error | {:ok, term()}
   def fetch_env_as_base16(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1911,50 +1746,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
-    is `false` (the opposite of `Base.decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base32, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32("NAME")
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32("NAME")
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32("NAME", case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32("NAME", as: :string, case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base32(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: :error | {:ok, term()}
+  @spec fetch_env_as_base32(
+          String.t(),
+          [unquote(Schema.option_typespec(:base32, as: :encoded, except: [:default]))]
+        ) :: :error | {:ok, term()}
   def fetch_env_as_base32(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -1971,50 +1790,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default
-    is `false` (the opposite of `Base.hex_decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:hex32, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32("NAME")
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32("NAME")
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32("NAME", case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32("NAME", case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32("NAME", as: :string, case: :lower)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32("NAME", as: :atom, case: :lower, downcase: true)
   {:ok, :red}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_hex32(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: :error | {:ok, term()}
+  @spec fetch_env_as_hex32(
+          String.t(),
+          [unquote(Schema.option_typespec(:hex32, as: :encoded, except: [:default]))]
+        ) :: :error | {:ok, term()}
   def fetch_env_as_hex32(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2031,50 +1834,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base64, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64("NAME")
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64("NAME")
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64("NAME", padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64("NAME", padding: false)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64("NAME", as: :string, padding: true)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64("NAME", as: :atom, downcase: true, padding: false)
   {:ok, :red}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base64(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:ignore_whitespace, boolean()}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: :error | {:ok, term()}
+  @spec fetch_env_as_base64(
+          String.t(),
+          [unquote(Schema.option_typespec(:base64, as: :encoded, except: [:default]))]
+        ) :: :error | {:ok, term()}
   def fetch_env_as_base64(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2091,50 +1878,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
-    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:url_base64, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64("NAME")
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64("NAME")
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64("NAME", padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64("NAME", padding: false)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64("NAME", as: :string, padding: true)
   {:ok, "RED"}
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64("NAME", as: :atom, downcase: true, padding: false)
   {:ok, :red}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_url_base64(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:ignore_whitespace, boolean()}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: :error | {:ok, term()}
+  @spec fetch_env_as_url_base64(
+          String.t(),
+          [unquote(Schema.option_typespec(:url_base64, as: :encoded, except: [:default]))]
+        ) :: :error | {:ok, term()}
   def fetch_env_as_url_base64(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2150,52 +1921,30 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Each entry must conform to the permitted
-    type provided in `:as`.
-
-  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
-    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
-    a regular expression). Defaults to `","`.
-
-  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
-    `:infinity`). Passed to `String.split/3`.
-
-  - `:trim`: A boolean option whether empty entries should be omitted.
-
-  When the pattern is a regular expression, `Regex.split/3` options are also supported:
-
-  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
-    `:first` which means captures inside the regex do not affect the splitting process.
-
-  - `:include_captures`: when true, includes in the result the matches of the regular
-    expression. The matches are not counted towards the maximum number of parts if
-    combined with the `:parts` option. Defaults to `false`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:list, as: :list, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("LIST", "1,2,3")
-  iex> Enviable.fetch_env_as_list("LIST")
+  iex> put_env("LIST", "1,2,3")
+  iex> fetch_env_as_list("LIST")
   {:ok, ["1", "2", "3"]}
-  iex> Enviable.fetch_env_as_list("LIST", as: :integer)
+  iex> fetch_env_as_list("LIST", as: :integer)
   {:ok, [1, 2, 3]}
 
-  iex> Enviable.put_env("LIST", "1;2;3")
-  iex> Enviable.fetch_env_as_list("LIST", delimiter: ";")
+  iex> put_env("LIST", "1;2;3")
+  iex> fetch_env_as_list("LIST", delimiter: ";")
   {:ok, ["1", "2", "3"]}
-  iex> Enviable.fetch_env_as_list("LIST", as: :integer, delimiter: ";")
+  iex> fetch_env_as_list("LIST", as: :integer, delimiter: ";")
   {:ok, [1, 2, 3]}
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_list(String.t(), [as_list_opt()]) :: :error | {:ok, list()}
+  @spec fetch_env_as_list(
+          String.t(),
+          [unquote(Schema.option_typespec(:list, as: :list, except: [:default]))]
+        ) :: :error | {:ok, list()}
   def fetch_env_as_list(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2245,6 +1994,8 @@ defmodule Enviable do
   - `:safe_module` (`t:Enviable.Conversion.convert_safe_module/0`,
     `fetch_env_as_safe_module!/2`)
 
+  - `:string` (`t:Enviable.Conversion.convert_string/0`)
+
   - `:timeout` (`t:Enviable.Conversion.convert_timeout/0`, `fetch_env_as_timeout!/2`)
 
   Supported encoded conversions are:
@@ -2259,61 +2010,63 @@ defmodule Enviable do
 
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list!/2`)
 
-  See `Enviable.Conversion` for supported type conversions and options, but note that any
-  documented `default` values are ignored for `fetch_env_as!/3` and related
-  `fetch_env_as_*!` functions.
+  See `Enviable.Conversion` for supported type conversions and options. Any provided
+  `:default` value is ignored in `fetch_env_as!/3` and the related `fetch_env_as_*!`
+  functions.
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as!("UNSET", :atom)
+  iex> fetch_env_as!("UNSET", :atom)
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.fetch_env_as!("UNSET", :float)
+  iex> fetch_env_as!("UNSET", :float)
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.fetch_env_as!("UNSET", :base16)
+  iex> fetch_env_as!("UNSET", :base16)
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "fetch_env_as!")
-  iex> Enviable.fetch_env_as!("NAME", :atom)
+  iex> put_env("NAME", "fetch_env_as!")
+  iex> fetch_env_as!("NAME", :atom)
   :fetch_env_as!
 
-  iex> Enviable.put_env("NAME", "FETCH_ENV_AS!")
-  iex> Enviable.fetch_env_as!("NAME", :safe_atom, downcase: true)
+  iex> put_env("NAME", "FETCH_ENV_AS!")
+  iex> fetch_env_as!("NAME", :safe_atom, downcase: true)
   :fetch_env_as!
 
-  iex> Enviable.fetch_env_as!("UNSET", :float, default: "3.5")
+  iex> fetch_env_as!("UNSET", :float, default: "3.5")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.fetch_env_as!("UNSET", :float, default: 3.5)
+  iex> fetch_env_as!("UNSET", :float, default: 3.5)
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("FLOAT", "3")
-  iex> Enviable.fetch_env_as!("FLOAT", :float)
+  iex> put_env("FLOAT", "3")
+  iex> fetch_env_as!("FLOAT", :float)
+  3.0
+  iex> fetch_env_as!("FLOAT", :float, default: :not_a_float)
   3.0
 
-  iex> Enviable.put_env("FLOAT", "3.1")
-  iex> Enviable.fetch_env_as!("FLOAT", :float)
+  iex> put_env("FLOAT", "3.1")
+  iex> fetch_env_as!("FLOAT", :float)
   3.1
 
   iex> red = Base.encode16("RED", case: :lower)
-  iex> Enviable.put_env("NAME", red)
-  iex> Enviable.fetch_env_as!("NAME", :base16, case: :lower)
+  iex> put_env("NAME", red)
+  iex> fetch_env_as!("NAME", :base16, case: :lower)
   "RED"
-  iex> Enviable.fetch_env_as!("NAME", {:base16, :string}, case: :lower)
+  iex> fetch_env_as!("NAME", {:base16, :string}, case: :lower)
   "RED"
-  iex> Enviable.fetch_env_as!("NAME", {:base16, :atom}, case: :lower, downcase: true)
+  iex> fetch_env_as!("NAME", {:base16, :atom}, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.1.0"
   @doc group: "Conversion"
   @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword()) :: term()
-  def fetch_env_as!(varname, type, opts \\ []) do
+  def fetch_env_as!(varname, type, opts \\ []) when is_list(opts) do
     varname
-    |> fetch_env!()
-    |> Conversion.convert_as(varname, type, opts)
+    |> Codex.fetch_env!()
+    |> Conversion.convert_as(type, Keyword.delete(opts, :default))
   end
 
   @doc """
@@ -2331,18 +2084,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_atom!("UNSET")
+  iex> fetch_env_as_atom!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "fetch_env_as_atom!")
-  iex> Enviable.fetch_env_as_atom!("NAME")
+  iex> put_env("NAME", "fetch_env_as_atom!")
+  iex> fetch_env_as_atom!("NAME")
   :fetch_env_as_atom!
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) :: atom()
-  def fetch_env_as_atom!(varname, opts \\ []), do: fetch_env_as!(varname, :atom, opts)
+  @spec fetch_env_as_atom!(
+          String.t(),
+          [unquote(Schema.option_typespec(:atom, except: [:default]))]
+        ) :: atom()
+  def fetch_env_as_atom!(varname, opts \\ []) do
+    fetch_env_as!(varname, :atom, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to an existing `t:atom/0` or
@@ -2360,19 +2118,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_safe_atom!("UNSET")
+  iex> fetch_env_as_safe_atom!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "FETCH_ENV_AS_SAFE_ATOM!")
-  iex> Enviable.fetch_env_as_safe_atom!("NAME", downcase: true)
+  iex> put_env("NAME", "FETCH_ENV_AS_SAFE_ATOM!")
+  iex> fetch_env_as_safe_atom!("NAME", downcase: true)
   :fetch_env_as_safe_atom!
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_atom!(String.t(), [{:allowed, list(atom())} | Conversion.opt_atom_downcase()]) ::
-          atom()
-  def fetch_env_as_safe_atom!(varname, opts \\ []), do: fetch_env_as!(varname, :safe_atom, opts)
+  @spec fetch_env_as_safe_atom!(
+          String.t(),
+          [unquote(Schema.option_typespec(:safe_atom, except: [:default]))]
+        ) :: atom()
+  def fetch_env_as_safe_atom!(varname, opts \\ []) do
+    fetch_env_as!(varname, :safe_atom, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:boolean/0` value or
@@ -2384,66 +2146,52 @@ defmodule Enviable do
 
   ### Options
 
-  - `:truthy`: a list of string values to be compared for truth values. If the value of
-    the environment variable matches these values, `true` will be returned; other values
-    will result in `false`. Mutually exclusive with `falsy`.
-
-  - `:falsy`: a list of string values to be compared for false values. If the value of the
-    environment variable matches these values, `false` will be returned; other values will
-    result in `true`. Mutually exclusive with `truthy`.
-
-  - `:downcase`: either `false`, `true`, or the mode parameter for `String.downcase/2`
-    (`:default`, `:ascii`, `:greek`, or `:turkic`). The default is `:default`.
-
-    The default `:downcase` value for boolean conversions can be changed at compile time
-    through application configuration:
-
-    ```elixir
-    config :enviable, :boolean_downcase, true
-    config :enviable, :boolean_downcase, :default
-    config :enviable, :boolean_downcase, :ascii
-    ```
+  #{Schema.docs(:boolean, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_boolean!("UNSET")
+  iex> fetch_env_as_boolean!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("FLAG", "1")
-  iex> Enviable.fetch_env_as_boolean!("FLAG")
+  iex> put_env("FLAG", "1")
+  iex> fetch_env_as_boolean!("FLAG")
   true
 
-  iex> Enviable.put_env("FLAG", "something")
-  iex> Enviable.fetch_env_as_boolean!("FLAG")
+  iex> put_env("FLAG", "something")
+  iex> fetch_env_as_boolean!("FLAG")
   false
 
-  iex> Enviable.put_env("FLAG", "oui")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "oui")
+  iex> fetch_env_as_boolean!("FLAG", truthy: ["oui"])
   true
 
-  iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"])
+  iex> put_env("FLAG", "OUI")
+  iex> fetch_env_as_boolean!("FLAG", truthy: ["oui"])
   true
 
-  iex> Enviable.put_env("FLAG", "OUI")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", truthy: ["oui"], downcase: false)
+  iex> put_env("FLAG", "OUI")
+  iex> fetch_env_as_boolean!("FLAG", truthy: ["oui"], downcase: false)
   false
 
-  iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", falsy: ["non"])
+  iex> put_env("FLAG", "NON")
+  iex> fetch_env_as_boolean!("FLAG", falsy: ["non"])
   false
 
-  iex> Enviable.put_env("FLAG", "NON")
-  iex> Enviable.fetch_env_as_boolean!("FLAG", falsy: ["non"], downcase: false)
+  iex> put_env("FLAG", "NON")
+  iex> fetch_env_as_boolean!("FLAG", falsy: ["non"], downcase: false)
   true
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_boolean!(String.t(), [Conversion.opt_bool_downcase() | {:truthy | :falsy, list(binary())}]) ::
-          boolean
-  def fetch_env_as_boolean!(varname, opts \\ []), do: fetch_env_as!(varname, :boolean, opts)
+  @spec fetch_env_as_boolean!(
+          String.t(),
+          [unquote(Schema.option_typespec(:boolean, except: [:default]))]
+        ) :: boolean
+  def fetch_env_as_boolean!(varname, opts \\ []) do
+    fetch_env_as!(varname, :boolean, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:charlist/0` or raises an
@@ -2452,18 +2200,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_charlist!("UNSET")
+  iex> fetch_env_as_charlist!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "fetch_env_as")
-  iex> Enviable.fetch_env_as_charlist!("NAME")
+  iex> put_env("NAME", "fetch_env_as")
+  iex> fetch_env_as_charlist!("NAME")
   ~c"fetch_env_as"
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_charlist!(String.t()) :: charlist()
-  def fetch_env_as_charlist!(varname), do: fetch_env_as!(varname, :charlist, [])
+  def fetch_env_as_charlist!(varname) do
+    fetch_env_as!(varname, :charlist, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:integer/0` value or
@@ -2471,34 +2221,38 @@ defmodule Enviable do
 
   ### Options
 
-  - `:base`: The base (`2..36`) for integer conversion. Defaults to base `10` like
-    `String.to_integer/2`.
+  #{Schema.docs(:integer, except: [:default])}
 
   Failure to parse the value of the environment variable will result in an exception.
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_integer!("UNSET")
+  iex> fetch_env_as_integer!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("PORT", "5432")
-  iex> Enviable.fetch_env_as_integer!("PORT")
+  iex> put_env("PORT", "5432")
+  iex> fetch_env_as_integer!("PORT")
   5432
 
-  iex> Enviable.put_env("PORT", "18eb")
-  iex> Enviable.fetch_env_as_integer!("PORT")
+  iex> put_env("PORT", "18eb")
+  iex> fetch_env_as_integer!("PORT")
   ** (Enviable.ConversionError) could not convert environment variable "PORT" to type integer
 
-  iex> Enviable.put_env("PORT", "18EB")
-  iex> Enviable.fetch_env_as_integer!("PORT", base: 16)
+  iex> put_env("PORT", "18EB")
+  iex> fetch_env_as_integer!("PORT", base: 16)
   6379
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_integer!(String.t(), [{:base, 2..36}]) :: integer()
-  def fetch_env_as_integer!(varname, opts \\ []), do: fetch_env_as!(varname, :integer, opts)
+  @spec fetch_env_as_integer!(
+          String.t(),
+          [unquote(Schema.option_typespec(:integer, except: [:default]))]
+        ) :: integer()
+  def fetch_env_as_integer!(varname, opts \\ []) do
+    fetch_env_as!(varname, :integer, opts)
+  end
 
   if Code.ensure_loaded?(Decimal) do
     @doc """
@@ -2508,9 +2262,7 @@ defmodule Enviable do
 
     ### Options
 
-    - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`,
-      `t:integer/0`, or `t:binary/0` (the latter three must convert cleanly to
-      `t:Decimal.t/0`).
+    #{Schema.docs(:decimal)}
 
     A shorthand for the `default` value may be provided as a `t:Decimal.t/0`, `t:float/0`,
     `t:integer/0`, or `t:binary/0` value.
@@ -2518,45 +2270,45 @@ defmodule Enviable do
     ### Examples
 
     ```elixir
-    iex> Enviable.get_env_as_decimal("DECIMAL")
+    iex> get_env_as_decimal("DECIMAL")
     nil
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", Decimal.new("3.14"))
+    iex> get_env_as_decimal("DECIMAL", Decimal.new("3.14"))
     Decimal.new("3.14")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", 25.5)
+    iex> get_env_as_decimal("DECIMAL", 25.5)
     Decimal.new("25.5")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", 25)
+    iex> get_env_as_decimal("DECIMAL", 25)
     Decimal.new("25")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", "255")
+    iex> get_env_as_decimal("DECIMAL", "255")
     Decimal.new("255")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: Decimal.new("3.14"))
+    iex> get_env_as_decimal("DECIMAL", default: Decimal.new("3.14"))
     Decimal.new("3.14")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: 25.5)
+    iex> get_env_as_decimal("DECIMAL", default: 25.5)
     Decimal.new("25.5")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: 25)
+    iex> get_env_as_decimal("DECIMAL", default: 25)
     Decimal.new("25")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: "255")
+    iex> get_env_as_decimal("DECIMAL", default: "255")
     Decimal.new("255")
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: "3.5R")
-    ** (ArgumentError) could not convert environment variable "DECIMAL" to type decimal: invalid decimal `default` value
+    iex> get_env_as_decimal("DECIMAL", default: "3.5R")
+    ** (Enviable.OptionError) could not convert environment variable "DECIMAL" to type decimal: `:default` is not a valid decimal
 
-    iex> Enviable.get_env_as_decimal("DECIMAL", default: %{})
-    ** (ArgumentError) could not convert environment variable "DECIMAL" to type decimal: invalid decimal `default` value
+    iex> get_env_as_decimal("DECIMAL", default: %{})
+    ** (Enviable.OptionError) could not convert environment variable "DECIMAL" to type decimal: invalid `:default` value (expected Decimal, float, integer, or string)
 
-    iex> Enviable.put_env("DECIMAL", "1")
-    iex> Enviable.get_env_as_decimal("DECIMAL")
+    iex> put_env("DECIMAL", "1")
+    iex> get_env_as_decimal("DECIMAL")
     Decimal.new("1")
 
-    iex> Enviable.put_env("DECIMAL", "ff")
-    iex> Enviable.get_env_as_decimal("DECIMAL")
+    iex> put_env("DECIMAL", "ff")
+    iex> get_env_as_decimal("DECIMAL")
     ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
     ```
     """
@@ -2564,9 +2316,8 @@ defmodule Enviable do
     @doc group: "Conversion"
     @spec get_env_as_decimal(
             String.t(),
-            Decimal.t() | float() | integer() | binary() | [{:default, Decimal.t() | binary() | float() | integer()}]
-          ) ::
-            Decimal.t() | nil
+            Decimal.t() | float() | integer() | String.t() | [unquote(Schema.option_typespec(:decimal))]
+          ) :: Decimal.t() | nil
     def get_env_as_decimal(varname, opts \\ [])
 
     def get_env_as_decimal(varname, default)
@@ -2582,22 +2333,24 @@ defmodule Enviable do
     ### Examples
 
     ```elixir
-    iex> Enviable.fetch_env_as_decimal("UNSET")
+    iex> fetch_env_as_decimal("UNSET")
     :error
 
-    iex> Enviable.put_env("DECIMAL", "1")
-    iex> Enviable.fetch_env_as_decimal("DECIMAL")
+    iex> put_env("DECIMAL", "1")
+    iex> fetch_env_as_decimal("DECIMAL")
     {:ok, Decimal.new("1")}
 
-    iex> Enviable.put_env("DECIMAL", "ff")
-    iex> Enviable.fetch_env_as_decimal("DECIMAL")
+    iex> put_env("DECIMAL", "ff")
+    iex> fetch_env_as_decimal("DECIMAL")
     ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
     ```
     """
     @doc since: "1.6.0"
     @doc group: "Conversion"
     @spec fetch_env_as_decimal(String.t()) :: {:ok, Decimal.t()} | :error
-    def fetch_env_as_decimal(varname), do: fetch_env_as(varname, :decimal, [])
+    def fetch_env_as_decimal(varname) do
+      fetch_env_as(varname, :decimal, [])
+    end
 
     @doc """
     Returns the value of an environment variable converted to a `t:Decimal.t/0` value or
@@ -2606,22 +2359,24 @@ defmodule Enviable do
     ### Examples
 
     ```elixir
-    iex> Enviable.fetch_env_as_decimal!("UNSET")
+    iex> fetch_env_as_decimal!("UNSET")
     ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-    iex> Enviable.put_env("DECIMAL", "1")
-    iex> Enviable.fetch_env_as_decimal!("DECIMAL")
+    iex> put_env("DECIMAL", "1")
+    iex> fetch_env_as_decimal!("DECIMAL")
     Decimal.new("1")
 
-    iex> Enviable.put_env("DECIMAL", "ff")
-    iex> Enviable.fetch_env_as_decimal!("DECIMAL")
+    iex> put_env("DECIMAL", "ff")
+    iex> fetch_env_as_decimal!("DECIMAL")
     ** (Enviable.ConversionError) could not convert environment variable "DECIMAL" to type decimal
     ```
     """
     @doc since: "1.6.0"
     @doc group: "Conversion"
     @spec fetch_env_as_decimal!(String.t()) :: Decimal.t()
-    def fetch_env_as_decimal!(varname), do: fetch_env_as!(varname, :decimal, [])
+    def fetch_env_as_decimal!(varname) do
+      fetch_env_as!(varname, :decimal, [])
+    end
   end
 
   @doc """
@@ -2631,22 +2386,24 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_float!("UNSET")
+  iex> fetch_env_as_float!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("FLOAT", "1")
-  iex> Enviable.fetch_env_as_float!("FLOAT")
+  iex> put_env("FLOAT", "1")
+  iex> fetch_env_as_float!("FLOAT")
   1.0
 
-  iex> Enviable.put_env("FLOAT", "ff")
-  iex> Enviable.fetch_env_as_float!("FLOAT")
+  iex> put_env("FLOAT", "ff")
+  iex> fetch_env_as_float!("FLOAT")
   ** (Enviable.ConversionError) could not convert environment variable "FLOAT" to type float
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_float!(String.t()) :: float()
-  def fetch_env_as_float!(varname), do: fetch_env_as!(varname, :float, [])
+  def fetch_env_as_float!(varname) do
+    fetch_env_as!(varname, :float, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted to
@@ -2654,55 +2411,37 @@ defmodule Enviable do
 
   ### Options
 
-  - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
-    a `t:mfa/0`, the variable value will be passed as the first parameter.
-
-    If the engine produces `{:ok, json_value}` or an expected JSON type result, it will be
-    considered successful. Any other result will be treated as failure.
-
-    The default JSON engine is `JSON` if Elixir's `m:JSON` is available, `:json` if the
-    Erlang/OTP `m::json` module is available (Erlang/OTP 27+) or provided by
-    [json_polyfill][jp]. Otherwise, [Jason][jason] is the default engine. This choice may
-    be overridden with application configuration, as this example shows using
-    [Thoas][thoas].
-
-    ```elixir
-    import Config
-
-    config :enviable, :json_engine, :thoas
-    ```
-
-  [jp]: https://hexdocs.pm/json_polyfill/readme.html
-  [jason]: https://hexdocs.pm/jason/readme.html
-  [thoas]: https://hexdocs.pm/thoas/readme.html
+  #{Schema.docs(:json, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_json!("UNSET")
+  iex> fetch_env_as_json!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("JSON", ~S|[{"foo":"bar"}]|)
-  iex> Enviable.fetch_env_as_json!("JSON")
+  iex> put_env("JSON", ~S|[{"foo":"bar"}]|)
+  iex> fetch_env_as_json!("JSON")
   [%{"foo" => "bar"}]
 
-  iex> Enviable.put_env("JSON", "ff")
-  iex> Enviable.fetch_env_as_json!("JSON")
+  iex> put_env("JSON", "ff")
+  iex> fetch_env_as_json!("JSON")
   ** (Enviable.ConversionError) could not convert environment variable "JSON" to type json
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_json!(String.t(), [{:engine, module() | (String.t() -> Conversion.json())}]) ::
-          Conversion.json()
-  def fetch_env_as_json!(varname, opts \\ []), do: fetch_env_as!(varname, :json, opts)
+  @spec fetch_env_as_json!(
+          String.t(),
+          [unquote(Schema.option_typespec(:json, except: [:default]))]
+        ) :: Conversion.json()
+  def fetch_env_as_json!(varname, opts \\ []) do
+    fetch_env_as!(varname, :json, opts)
+  end
 
   module_options = """
   ### Options
 
-  - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
-    a lookup table, if present. Any value not found will result in an exception.
+  #{Schema.docs(:module, except: [:default])}
   """
 
   @doc """
@@ -2720,18 +2459,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_module!("UNSET")
+  iex> fetch_env_as_module!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.fetch_env_as_module!("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> fetch_env_as_module!("NAME")
   Elixir.Enviable
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_module!(String.t(), [{:allowed, list(module())}]) :: module()
-  def fetch_env_as_module!(varname, opts \\ []), do: fetch_env_as!(varname, :module, opts)
+  @spec fetch_env_as_module!(
+          String.t(),
+          [unquote(Schema.option_typespec(:module, except: [:default]))]
+        ) :: module()
+  def fetch_env_as_module!(varname, opts \\ []) do
+    fetch_env_as!(varname, :module, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to `t:module/0` or raises an
@@ -2749,18 +2493,23 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_safe_module!("UNSET")
+  iex> fetch_env_as_safe_module!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("NAME", "Enviable")
-  iex> Enviable.fetch_env_as_safe_module!("NAME")
+  iex> put_env("NAME", "Enviable")
+  iex> fetch_env_as_safe_module!("NAME")
   Elixir.Enviable
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_safe_module!(String.t(), [{:allowed, list(module())}]) :: module()
-  def fetch_env_as_safe_module!(varname, opts \\ []), do: fetch_env_as!(varname, :safe_module, opts)
+  @spec fetch_env_as_safe_module!(
+          String.t(),
+          [unquote(Schema.option_typespec(:safe_module, except: [:default]))]
+        ) :: module()
+  def fetch_env_as_safe_module!(varname, opts \\ []) do
+    fetch_env_as!(varname, :safe_module, opts)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a log level `t:atom/0` for
@@ -2769,18 +2518,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_log_level!("UNSET")
+  iex> fetch_env_as_log_level!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("LOG_LEVEL", "critical")
-  iex> Enviable.fetch_env_as_log_level!("LOG_LEVEL")
+  iex> put_env("LOG_LEVEL", "critical")
+  iex> fetch_env_as_log_level!("LOG_LEVEL")
   :critical
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_log_level!(String.t()) :: Conversion.log_level()
-  def fetch_env_as_log_level!(varname), do: fetch_env_as!(varname, :log_level, [])
+  def fetch_env_as_log_level!(varname) do
+    fetch_env_as!(varname, :log_level, [])
+  end
 
   @doc """
   Returns the value of an environment variable converted from a PEM string through
@@ -2788,36 +2539,28 @@ defmodule Enviable do
 
   ### Options
 
-  - `:filter`: Filters the output of `:public_key.pem_decode/1`. Permitted values are
-    `false`, `true`, `:cert`, or `:key`. The default is `true`.
-
-    - `false`: the list is returned without processing, suitable for further processing
-      with `:public_key.pem_entry_decode/2`.
-
-    - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
-      `:Certificate` records, or an empty list.
-
-    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an
-      exception if none are found.
-
-    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
-      exception if one is not found.
+  #{Schema.docs(:pem, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_pem!("UNSET")
+  iex> fetch_env_as_pem!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("PEM", "")
-  iex> Enviable.fetch_env_as_pem!("PEM")
+  iex> put_env("PEM", "")
+  iex> fetch_env_as_pem!("PEM")
   []
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_pem!(String.t(), [{:filter, boolean() | :cert | :key}]) :: Conversion.pem()
-  def fetch_env_as_pem!(varname, opts \\ []), do: fetch_env_as!(varname, :pem, opts)
+  @spec fetch_env_as_pem!(
+          String.t(),
+          [unquote(Schema.option_typespec(:pem))]
+        ) :: Conversion.pem()
+  def fetch_env_as_pem!(varname, opts \\ []) do
+    fetch_env_as!(varname, :pem, opts)
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Erlang code with
@@ -2836,18 +2579,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_erlang!("UNSET")
+  iex> fetch_env_as_erlang!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("TERM", "{ok, true}.")
-  iex> Enviable.fetch_env_as_erlang!("TERM")
+  iex> put_env("TERM", "{ok, true}.")
+  iex> fetch_env_as_erlang!("TERM")
   {:ok, true}
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_erlang!(String.t()) :: term()
-  def fetch_env_as_erlang!(varname), do: fetch_env_as!(varname, :erlang, [])
+  def fetch_env_as_erlang!(varname) do
+    fetch_env_as!(varname, :erlang, [])
+  end
 
   @doc """
   Returns the value of an environment variable parsed and evaluated as Elixir code with
@@ -2866,18 +2611,20 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_elixir!("UNSET")
+  iex> fetch_env_as_elixir!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("TERM", "11000..11100//3")
-  iex> Enviable.fetch_env_as_elixir!("TERM")
+  iex> put_env("TERM", "11000..11100//3")
+  iex> fetch_env_as_elixir!("TERM")
   11000..11100//3
   ```
   """
   @doc since: "1.3.0"
   @doc group: "Conversion"
   @spec fetch_env_as_elixir!(String.t()) :: term()
-  def fetch_env_as_elixir!(varname), do: fetch_env_as!(varname, :elixir, [])
+  def fetch_env_as_elixir!(varname) do
+    fetch_env_as!(varname, :elixir, [])
+  end
 
   @doc """
   Returns the value of an environment variable decoded from a base 16 string or raises an
@@ -2885,46 +2632,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base16, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16!("NAME")
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16!("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16!("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16!("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16!("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16!("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode16("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base16!("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode16("RED", case: :lower))
+  iex> fetch_env_as_base16!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base16!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {atom(), term()}
-        ]) :: term()
+  @spec fetch_env_as_base16!(
+          String.t(),
+          [unquote(Schema.option_typespec(:base16, as: :encoded, except: [:default]))]
+        ) :: term()
   def fetch_env_as_base16!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -2941,50 +2676,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
-    is `false` (the opposite of `Base.decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base32, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32!("NAME")
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32!("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32!("NAME", case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32!("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32!("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32!("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_base32!("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.encode32("RED", case: :lower))
+  iex> fetch_env_as_base32!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base32!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: term()
+  @spec fetch_env_as_base32!(
+          String.t(),
+          [unquote(Schema.option_typespec(:base32, as: :encoded, except: [:default]))]
+        ) :: term()
   def fetch_env_as_base32!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3001,50 +2720,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `hex.decode32/2`. The default is
-    `false` (the opposite of `Base.hex_decode32/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:hex32, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32!("NAME")
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32!("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32!("NAME", case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32!("NAME", case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32!("NAME", as: :string, case: :lower)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32!("NAME", as: :string, case: :lower)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.hex_encode32("RED", case: :lower))
-  iex> Enviable.fetch_env_as_hex32!("NAME", as: :atom, case: :lower, downcase: true)
+  iex> put_env("NAME", Base.hex_encode32("RED", case: :lower))
+  iex> fetch_env_as_hex32!("NAME", as: :atom, case: :lower, downcase: true)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_hex32!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: term()
+  @spec fetch_env_as_hex32!(
+          String.t(),
+          [unquote(Schema.option_typespec(:hex32, as: :encoded, except: [:default]))]
+        ) :: term()
   def fetch_env_as_hex32!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3061,50 +2764,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
-    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:base64, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64!("NAME")
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64!("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64!("NAME", padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64!("NAME", padding: false)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64!("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64!("NAME", as: :string, padding: true)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_base64!("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.encode64("RED", padding: true))
+  iex> fetch_env_as_base64!("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_base64!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: term()
+  @spec fetch_env_as_base64!(
+          String.t(),
+          [unquote(Schema.option_typespec(:base64, as: :encoded, except: [:default]))]
+        ) :: term()
   def fetch_env_as_base64!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3121,50 +2808,34 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Must conform to the permitted type provided
-    in `:as`.
-
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`, the
-    opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:url_base64, as: :encoded, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64!("NAME")
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64!("NAME")
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64!("NAME", padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64!("NAME", padding: false)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64!("NAME", as: :string, padding: true)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64!("NAME", as: :string, padding: true)
   "RED"
 
-  iex> Enviable.put_env("NAME", Base.url_encode64("RED", padding: true))
-  iex> Enviable.fetch_env_as_url_base64!("NAME", as: :atom, downcase: true, padding: false)
+  iex> put_env("NAME", Base.url_encode64("RED", padding: true))
+  iex> fetch_env_as_url_base64!("NAME", as: :atom, downcase: true, padding: false)
   :red
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_url_base64!(String.t(), [
-          {:default, term()}
-          | {:as, :string | Conversion.primitive()}
-          | {:case, :upper | :lower | :mixed}
-          | {:padding, boolean()}
-          | {atom(), term()}
-        ]) :: term()
+  @spec fetch_env_as_url_base64!(
+          String.t(),
+          [unquote(Schema.option_typespec(:url_base64, as: :encoded, except: [:default]))]
+        ) :: term()
   def fetch_env_as_url_base64!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3180,52 +2851,30 @@ defmodule Enviable do
 
   ## Options
 
-  - `:as`: The type of value that the encoded string is to be parsed as once decoded. Must
-    be either `:string` (the same as not providing `as: :string`) or
-    a `t:Conversion.primitive/0` value.
-
-  - `:default`: The default value to be used. Each entry must conform to the permitted
-    type provided in `:as`.
-
-  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
-    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
-    a regular expression). Defaults to `","`.
-
-  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
-    `:infinity`). Passed to `String.split/3`.
-
-  - `:trim`: A boolean option whether empty entries should be omitted.
-
-  When the pattern is a regular expression, `Regex.split/3` options are also supported:
-
-  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
-    :first which means captures inside the regex do not affect the splitting process.
-
-  - `:include_captures`: when true, includes in the result the matches of the regular
-    expression. The matches are not counted towards the maximum number of parts if
-    combined with the `:parts` option. Defaults to `false`.
-
-  If `:as` is provided, the options for that type may also be provided.
+  #{Schema.docs(:list, as: :list, except: [:default])}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.put_env("LIST", "1,2,3")
-  iex> Enviable.fetch_env_as_list!("LIST")
+  iex> put_env("LIST", "1,2,3")
+  iex> fetch_env_as_list!("LIST")
   ["1", "2", "3"]
-  iex> Enviable.fetch_env_as_list!("LIST", as: :integer)
+  iex> fetch_env_as_list!("LIST", as: :integer)
   [1, 2, 3]
 
-  iex> Enviable.put_env("LIST", "1;2;3")
-  iex> Enviable.fetch_env_as_list!("LIST", delimiter: ";")
+  iex> put_env("LIST", "1;2;3")
+  iex> fetch_env_as_list!("LIST", delimiter: ";")
   ["1", "2", "3"]
-  iex> Enviable.fetch_env_as_list!("LIST", as: :integer, delimiter: ";")
+  iex> fetch_env_as_list!("LIST", as: :integer, delimiter: ";")
   [1, 2, 3]
   ```
   """
   @doc since: "1.4.0"
   @doc group: "Conversion"
-  @spec fetch_env_as_list!(String.t(), [as_list_opt()]) :: list()
+  @spec fetch_env_as_list!(
+          String.t(),
+          [unquote(Schema.option_typespec(:list, as: :list, except: [:default]))]
+        ) :: list()
   def fetch_env_as_list!(varname, opts \\ []) do
     {type, opts} =
       case Keyword.pop(opts, :as) do
@@ -3273,29 +2922,26 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value. This may be a timeout value described above,
-    a `t:Duration.t/0`, a `t:timeout/0` value, or a `t:keyword/0` list where the keys may
-    be `:week`, `:day`, `:hour`, `:minute`, `:second`, or `:millisecond` as described in
-    `Kernel.to_timeout/1`.
+  #{Schema.docs(:timeout)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_timeout("UNSET")
+  iex> get_env_as_timeout("UNSET")
   :infinity
 
-  iex> Enviable.get_env_as_timeout("UNSET", "30s")
+  iex> get_env_as_timeout("UNSET", "30s")
   30000
 
-  iex> Enviable.get_env_as_timeout("UNSET", "PT30S")
+  iex> get_env_as_timeout("UNSET", "PT30S")
   30000
 
-  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-  iex> Enviable.get_env_as_timeout("TIMEOUT")
+  iex> put_env("TIMEOUT", "3_0 seconds")
+  iex> get_env_as_timeout("TIMEOUT")
   30000
 
-  iex> Enviable.put_env("TIMEOUT", "PT30S")
-  iex> Enviable.get_env_as_timeout("TIMEOUT")
+  iex> put_env("TIMEOUT", "PT30S")
+  iex> get_env_as_timeout("TIMEOUT")
   30000
   ```
   """
@@ -3303,7 +2949,10 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_timeout(
           String.t(),
-          Conversion.timeout_default() | [{:default, Conversion.timeout_default()}]
+          timeout()
+          | String.t()
+          | Duration.t()
+          | [unquote(Schema.option_typespec(:timeout)) | {Conversion.timeout_unit(), non_neg_integer()}]
         ) :: timeout()
   def get_env_as_timeout(varname, opts \\ [])
 
@@ -3332,22 +2981,24 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_timeout("UNSET")
+  iex> fetch_env_as_timeout("UNSET")
   :error
 
-  iex> Enviable.put_env("TIMEOUT", "infinity")
-  iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+  iex> put_env("TIMEOUT", "infinity")
+  iex> fetch_env_as_timeout("TIMEOUT")
   {:ok, :infinity}
 
-  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-  iex> Enviable.fetch_env_as_timeout("TIMEOUT")
+  iex> put_env("TIMEOUT", "3_0 seconds")
+  iex> fetch_env_as_timeout("TIMEOUT")
   {:ok, 30000}
   ```
   """
   @doc since: "1.7.0"
   @doc group: "Conversion"
   @spec fetch_env_as_timeout(String.t()) :: {:ok, timeout()} | :error
-  def fetch_env_as_timeout(varname), do: fetch_env_as(varname, :timeout)
+  def fetch_env_as_timeout(varname) do
+    fetch_env_as(varname, :timeout)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a millisecond `t:timeout/0` or
@@ -3358,22 +3009,24 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_timeout!("UNSET")
+  iex> fetch_env_as_timeout!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("TIMEOUT", "infinity")
-  iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+  iex> put_env("TIMEOUT", "infinity")
+  iex> fetch_env_as_timeout!("TIMEOUT")
   :infinity
 
-  iex> Enviable.put_env("TIMEOUT", "3_0 seconds")
-  iex> Enviable.fetch_env_as_timeout!("TIMEOUT")
+  iex> put_env("TIMEOUT", "3_0 seconds")
+  iex> fetch_env_as_timeout!("TIMEOUT")
   30000
   ```
   """
   @doc since: "1.7.0"
   @doc group: "Conversion"
   @spec fetch_env_as_timeout!(String.t()) :: timeout()
-  def fetch_env_as_timeout!(varname), do: fetch_env_as!(varname, :timeout)
+  def fetch_env_as_timeout!(varname) do
+    fetch_env_as!(varname, :timeout)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:Duration.t/0` or
@@ -3384,20 +3037,19 @@ defmodule Enviable do
 
   ### Options
 
-  - `:default`: The default value. a `t:Duration.t/0` struct or an ISO8601 duration
-    string parseable by `Duration.from_iso8601/1`.
+  #{Schema.docs(:duration)}
 
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env_as_duration("UNSET")
+  iex> get_env_as_duration("UNSET")
   nil
 
-  iex> Enviable.get_env_as_duration("UNSET", "PT30S")
+  iex> get_env_as_duration("UNSET", "PT30S")
   %Duration{second: 30}
 
-  iex> Enviable.put_env("TIMEOUT", "PT1H30M")
-  iex> Enviable.get_env_as_duration("TIMEOUT")
+  iex> put_env("TIMEOUT", "PT1H30M")
+  iex> get_env_as_duration("TIMEOUT")
   %Duration{hour: 1, minute: 30}
   ```
   """
@@ -3405,7 +3057,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_duration(
           String.t(),
-          String.t() | Duration.t() | [{:default, String.t() | Duration.t()}]
+          String.t() | Duration.t() | [unquote(Schema.option_typespec(:duration))]
         ) :: Duration.t()
   def get_env_as_duration(varname, opts \\ [])
 
@@ -3421,22 +3073,24 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_duration("UNSET")
+  iex> fetch_env_as_duration("UNSET")
   :error
 
-  iex> Enviable.put_env("DURATION", "PT30S")
-  iex> Enviable.fetch_env_as_duration("DURATION")
+  iex> put_env("DURATION", "PT30S")
+  iex> fetch_env_as_duration("DURATION")
   {:ok, %Duration{second: 30}}
 
-  iex> Enviable.put_env("DURATION", "PT1H30M")
-  iex> Enviable.fetch_env_as_duration("DURATION")
+  iex> put_env("DURATION", "PT1H30M")
+  iex> fetch_env_as_duration("DURATION")
   {:ok, %Duration{hour: 1, minute: 30}}
   ```
   """
   @doc since: "2.2.0"
   @doc group: "Conversion"
   @spec fetch_env_as_duration(String.t()) :: {:ok, Duration.t()} | :error
-  def fetch_env_as_duration(varname), do: fetch_env_as(varname, :duration)
+  def fetch_env_as_duration(varname) do
+    fetch_env_as(varname, :duration)
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:Duration.t/0` or raises
@@ -3445,29 +3099,33 @@ defmodule Enviable do
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env_as_duration!("UNSET")
+  iex> fetch_env_as_duration!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("DURATION", "PT30S")
-  iex> Enviable.fetch_env_as_duration!("DURATION")
+  iex> put_env("DURATION", "PT30S")
+  iex> fetch_env_as_duration!("DURATION")
   %Duration{second: 30}
 
-  iex> Enviable.put_env("DURATION", "PT1H30M")
-  iex> Enviable.fetch_env_as_duration!("DURATION")
+  iex> put_env("DURATION", "PT1H30M")
+  iex> fetch_env_as_duration!("DURATION")
   %Duration{hour: 1, minute: 30}
   ```
   """
   @doc since: "2.2.0"
   @doc group: "Conversion"
   @spec fetch_env_as_duration!(String.t()) :: Duration.t()
-  def fetch_env_as_duration!(varname), do: fetch_env_as!(varname, :duration)
+  def fetch_env_as_duration!(varname) do
+    fetch_env_as!(varname, :duration)
+  end
 
   @doc """
   Deletes an environment variable, removing `varname` from the environment.
+
+  See `Enviable.Codex.delete_env/1`.
   """
-  @doc group: "Delegates"
-  @spec delete_env(String.t()) :: :ok
-  defdelegate delete_env(varname), to: System
+  @doc group: "Env"
+  @spec delete_env(String.t() | Value.t()) :: :ok
+  defdelegate delete_env(varname), to: Codex
 
   @doc """
   Returns the value of the given environment variable or `:error` if not found.
@@ -3475,50 +3133,63 @@ defmodule Enviable do
   If the environment variable `varname` is set, then `{:ok, value}` is returned where
   value is a string. If `varname` is not set, `:error` is returned.
 
+  See `Enviable.Codex.fetch_env/1`.
+
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env("PORT")
+  iex> fetch_env("PORT")
   :error
 
-  iex> Enviable.put_env("PORT", "4000")
-  iex> Enviable.fetch_env("PORT")
+  iex> put_env("PORT", "4000")
+  iex> fetch_env("PORT")
   {:ok, "4000"}
   ```
   """
-  @doc group: "Delegates"
-  @spec fetch_env(String.t()) :: {:ok, String.t()} | :error
-  defdelegate fetch_env(varname), to: System
+  @doc group: "Env"
+  @spec fetch_env(String.t() | Value.t()) :: {:ok, String.t()} | :error
+  def fetch_env(var) do
+    case Codex.fetch_env(var) do
+      {:ok, %Value{} = value} -> {:ok, Value.__unwrap__(value)}
+      :error -> :error
+    end
+  end
 
   @doc """
   Returns the value of the given environment variable or raises if not found.
 
   Same as `get_env/1` but raises instead of returning `nil` when the variable is not set.
 
+  See `Enviable.Codex.fetch_env!/1`.
+
   ### Examples
 
   ```elixir
-  iex> Enviable.fetch_env!("UNSET")
+  iex> fetch_env!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
-  iex> Enviable.put_env("PORT", "4000")
-  iex> Enviable.fetch_env!("PORT")
+  iex> put_env("PORT", "4000")
+  iex> fetch_env!("PORT")
   "4000"
   ```
   """
-  @doc group: "Delegates"
-  @spec fetch_env!(String.t()) :: String.t()
-  defdelegate fetch_env!(varname), to: System
+  @doc group: "Env"
+  @spec fetch_env!(String.t() | Value.t()) :: String.t()
+  def fetch_env!(var) do
+    Value.__unwrap__(Codex.fetch_env!(var))
+  end
 
   @doc """
   Returns all system environment variables.
 
   The returned value is a map containing name-value pairs. Variable names and their values
   are strings.
+
+  See `Enviable.Codex.get_env/0`.
   """
-  @doc group: "Delegates"
-  @spec get_env() :: %{optional(String.t()) => String.t()}
-  defdelegate get_env, to: System
+  @doc group: "Env"
+  @spec get_env() :: Value.env_map()
+  defdelegate get_env, to: Codex
 
   @doc """
   Returns the value of the given environment variable.
@@ -3527,35 +3198,61 @@ defmodule Enviable do
   variable is not set, returns the string specified in `default` or `nil` if none is
   specified.
 
+  See `Enviable.Codex.get_env/2`.
+
   ### Examples
 
   ```elixir
-  iex> Enviable.get_env("PORT")
+  iex> get_env("PORT")
   nil
 
-  iex> Enviable.get_env("PORT", "4001")
+  iex> get_env("PORT", "4001")
   "4001"
 
-  iex> Enviable.put_env("PORT", "4000")
-  iex> Enviable.get_env("PORT")
+  iex> put_env("PORT", "4000")
+  iex> get_env("PORT")
   "4000"
-  iex> Enviable.get_env("PORT", "4001")
+  iex> get_env("PORT", "4001")
   "4000"
   ```
   """
-  @doc group: "Delegates"
-  @spec get_env(String.t(), default) :: String.t() | default
+  @doc group: "Env"
+  @spec get_env(String.t() | Value.t(), default) :: String.t() | default
         when default: String.t() | nil
-  defdelegate get_env(varname, default \\ nil), to: System
+  def get_env(var, default \\ nil) do
+    Value.__unwrap__(Codex.get_env(var, default))
+  end
 
   @doc """
-  Sets an environment variable value.
+  Sets or deletes an environment variable.
 
-  Sets a new `value` for the environment variable `varname`.
+  Sets a new `value` for the environment variable `varname`. If `value` is `nil` or an
+  unset `t:Value.t/0`, the variable is deleted. (`System.put_env/2` raises on `nil`.) A
+  `t:Value.t/0` `varname` sets the variable with the Value's name.
+
+  See `Enviable.Codex.put_env/2`.
+
+  ### Examples
+
+  ```elixir
+  iex> Enviable.put_env("PORT", "4000")
+  :ok
+  iex> Enviable.get_env("PORT")
+  "4000"
+  iex> Enviable.put_env("PORT", nil)
+  :ok
+  iex> Enviable.get_env("PORT")
+  nil
+
+  iex> Enviable.put_env(%Enviable.Value{name: "PORT", value: nil}, "4001")
+  :ok
+  iex> Enviable.get_env("PORT")
+  "4001"
+  ```
   """
-  @doc group: "Delegates"
-  @spec put_env(String.t(), String.t()) :: :ok
-  defdelegate put_env(varname, value), to: System
+  @doc group: "Env"
+  @spec put_env(String.t() | Value.t(), nil | String.t() | Value.t()) :: :ok
+  defdelegate put_env(varname, value), to: Codex
 
   @doc """
   Sets multiple environment variables.
@@ -3566,8 +3263,10 @@ defmodule Enviable do
 
   Overall, this is a convenience wrapper around `put_env/2` and `delete_env/2` with
   support for different key and value formats.
+
+  See `Enviable.Codex.put_env/1`.
   """
-  @doc group: "Delegates"
-  @spec put_env(Enumerable.t()) :: :ok
-  defdelegate put_env(var_map), to: System
+  @doc group: "Env"
+  @spec put_env(Enumerable.t() | Value.t()) :: :ok
+  defdelegate put_env(var_map), to: Codex
 end

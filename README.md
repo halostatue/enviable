@@ -14,13 +14,48 @@ application model. It works well with configuration environment loaders like
 [Dotenvy][dotenvy], [Nvir][nvir], or [Envious][envious] and provides robust
 value conversion like [jetenv][jetenv].
 
-Enviable 2.0 removes deprecated functions and changes defaults as previously
-documented. Elixir 1.17 or later is required.
+Enviable 3.0 introduces a new interface, `Enviable.Codex`, separating value
+retrieval from conversion. The main new features in Codex:
+
+- support for environment maps (returned from Dotenvy and Envious, or
+  `System.get_env/0`) with `fetch_env_map/2`, `fetch_env_map!/2`, and
+  `get_env_map/2,3`;
+- once-only retrieval (get and erase) with `fetch_env_once/1`,
+  `fetch_env_once!/1`, and `get_env_once/1,2`; and
+- optional paranoid value handling, where retrieved values are stored in
+  closures.
+
+All Enviable.Codex value retrieval functions all return a struct implementing
+`String.Chars`; it can be used in string interpolation just like values from
+`System.get_env/1,2`. Outside of string interpolation, `as_string/1` is
+recommended.
+
+There are breaking changes described in the [CHANGELOG][changelog].
+
+Elixir 1.17 or later is required.
 
 ## Usage
 
-Enviable will typically be imported in `config/runtime.exs` after `Config`, but
-may be used anywhere that environment variables are read.
+Enviable or Enviable.Codex will typically be imported in `config/runtime.exs`
+after `Config`, but may be used anywhere that environment variables are read.
+
+### Enviable.Codex with [Nvir][nvir]
+
+The Nvir `dotenv*` functions always return an environment map, but it
+automatically pushes all values back into the process environment table.
+
+```elixir
+import Nvir
+import Enviable.Codex
+
+client = fetch_env!("CLIENT")
+dotenv!([".env", ".env.#{client}"])
+
+config :my_app,
+  key: fetch_env_once!("SECRET_KEY") |> as_string(),
+  port: fetch_env!("PORT") |> as_integer(),
+  ssl: get_env("SSL_ENABLED") |> as_boolean()
+```
 
 ### Enviable with [Nvir][nvir]
 
@@ -37,7 +72,28 @@ config :my_app,
   ssl: get_env_as_boolean("SSL_ENABLED")
 ```
 
+### Enviable.Codex with [Dotenvy][dotenvy]
+
+The use of a `side_effect` calling `System.put_env/1` is _discouraged_ with
+Enviable.Codex.
+
+```elixir
+import Config
+import Enviable.Codex
+
+client = fetch_env!("CLIENT")
+values = Dotenvy.source!([".env", ".env.#{client}", get_env()])
+
+config :my_app,
+  key: fetch_env_map!(values, "SECRET_KEY") |> as_string(),
+  port: fetch_env_map!(values, "PORT") |> as_integer(),
+  ssl: get_env_map(values, "SSL_ENABLED") |> as_boolean()
+```
+
 ### Enviable with [Dotenvy][dotenvy]
+
+The use of a `side_effect` that calls `System.put_env/1` is **required** with
+Enviable.
 
 ```elixir
 # config/runtime.exs
@@ -53,17 +109,41 @@ config :my_app,
   ssl: get_env_as_boolean("SSL_ENABLED")
 ```
 
-> #### Info {: .info}
->
-> When using Dotenvy, the use of a `side_effect` that calls `System.put_env/1`
-> is **required**, as Enviable works with the system environment variable table.
-> Future versions of Enviable may offer ways to work with the default Dotenvy
-> behaviour.
+### Enviable.Codex with [Envious][envious]
+
+Envious parses a single file at a time and doesn't write to the environment
+variable table.
+
+```elixir
+import Config
+import Enviable.Codex
+
+client = fetch_env!("CLIENT")
+env_files = [".env", ".env.#{client}"]
+
+loaded_env =
+  Enum.reduce(env_files, %{}, fn file, acc ->
+    case File.read(file) do
+      {:ok, contents} -> Map.merge(acc, Envious.parse!(contents))
+      _ -> acc
+    end
+  end)
+
+values = Map.merge(loaded_env, get_env())
+
+config :my_app,
+  key: fetch_env_map!(values, "SECRET_KEY") |> as_string(),
+  port: fetch_env_map!(values, "PORT") |> as_integer(),
+  ssl: get_env_map(values, "SSL_ENABLED") |> as_boolean()
+```
 
 ### Enviable with [Envious][envious]
 
+Envious parses a single file at a time and doesn't write to the environment
+variable table. To work with Enviable, we put the values into the environment
+with `put_env_new/2`.
+
 ```elixir
-# config/runtime.exs
 import Config
 import Enviable
 
@@ -73,10 +153,8 @@ env_files = [".env", ".env.#{client}"]
 
 loaded_env =
   Enum.reduce(env_files, %{}, fn file, acc ->
-    with {:ok, contents} <- File.read(file),
-         {:ok, env} <- Envious.parse(contents) do
-      Map.merge(acc, env)
-    else
+    case File.read(file) do
+      {:ok, contents} -> Map.merge(acc, Envious.parse!(contents))
       _ -> acc
     end
   end)
@@ -97,7 +175,7 @@ Enviable can be installed by adding `enviable` to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:enviable, "~> 2.1"},
+    {:enviable, "~> 3.0"},
     # Optional, required for decimal conversion
     {:decimal, "~> 2.3"},
     # Optional, required only if :json or JSON aren't available or another
@@ -116,9 +194,10 @@ Documentation is found on [HexDocs][docs].
 `Enviable` follows [Semantic Versioning 2.0][semver].
 
 [12f]: https://12factor.net/
-[docs]: https://hexdocs.pm/enviable
-[dotenvy]: https://hexdocs.pm/dotenvy/readme.html
-[envious]: https://github.com/jax-ex/envious
-[jetenv]: https://hexdocs.pm/jetenv/readme.html
-[nvir]: https://hexdocs.pm/nvir/readme.html
+[changelog]: https://enviable.hexdocs.pm/CHANGELOG.html
+[docs]: https://enviable.hexdocs.pm/
+[dotenvy]: https://dotenvy.hexdocs.pm/readme.html
+[envious]: https://envious.hexdocs.pm/readme.html
+[jetenv]: https://jetenv.hexdocs.pm/readme.html
+[nvir]: https://nvir.hexdocs.pm//readme.html
 [semver]: https://semver.org/

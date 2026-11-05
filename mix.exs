@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "2.3.0"
+  @version "3.0.0"
 
   def project do
     [
@@ -37,7 +37,8 @@ defmodule Enviable.MixProject do
       preferred_envs: [
         coveralls: :test,
         "coveralls.github": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "coveralls.detail": :test
       ]
     ]
   end
@@ -49,7 +50,7 @@ defmodule Enviable.MixProject do
     [
       maintainers: "Austin Ziegler",
       licenses: ["Apache-2.0"],
-      files: ~w(lib .formatter.exs mix.exs *.md),
+      files: ~w(lib .formatter.exs mix.exs *.md usage-rules),
       links: %{
         "Source" => @project_url,
         "Issues" => @project_url <> "/issues"
@@ -59,6 +60,7 @@ defmodule Enviable.MixProject do
 
   defp deps do
     [
+      {:nimble_options, "~> 1.0"},
       {:nimble_parsec, "~> 1.4"},
       {:castore, "~> 1.0", optional: true},
       {:decimal, "~> 2.0 or ~> 3.0", optional: true},
@@ -66,10 +68,11 @@ defmodule Enviable.MixProject do
       {:credo, "~> 1.7 and >= 1.7.14", optional: true, runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.29", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.18", only: [:test]},
+      {:excoveralls, "~> 0.18", only: [:dev, :test]},
       {:mix_audit, "~> 2.1", only: [:dev, :test]},
       {:quokka, "~> 2.6", only: [:dev, :test], runtime: false},
-      {:sobelow, "~> 0.14", only: [:dev, :test]}
+      {:sobelow, "~> 0.14", only: [:dev, :test]},
+      {:usage_rules, "~> 1.3", only: [:dev, :test]}
     ]
   end
 

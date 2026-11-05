@@ -272,5 +272,302 @@ defmodule Enviable.Credo.UnsafeAtomTest do
       |> run_check(UnsafeAtom)
       |> assert_issues()
     end
+
+    test "reports piped Enviable calls" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable
+
+        def some_function do
+          "VAR" |> Enviable.get_env_as(:atom)
+          "VAR" |> get_env_as_atom()
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(2)
+    end
+
+    test "reports import Enviable with options" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable, only: [get_env_as_atom: 1]
+
+        def some_function do
+          get_env_as_atom("VAR")
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(1)
+    end
+  end
+
+  describe "Enviable.Codex: no issues reported" do
+    test "safe and :allowed conversions" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable.Codex
+
+        def some_function do
+          get_env("VAR") |> as_safe_atom()
+          get_env("VAR") |> as(:safe_module)
+          get_env("VAR") |> as_list(as: :safe_atom)
+          get_env("VAR") |> as_atom(allowed: [:foo])
+          get_env("VAR") |> as_module(allowed: [Foo])
+          get_env("VAR") |> as({:list, :atom}, allowed: [:foo])
+          Enviable.Codex.as_safe_module(get_env("VAR"))
+          Enviable.Codex.as_base64(get_env("VAR"), as: :integer)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> refute_issues()
+    end
+
+    test "bare as_* calls without import Enviable.Codex" do
+      ~S'''
+      defmodule CredoSampleModule do
+        def as_atom(value), do: String.to_atom(value)
+
+        def some_function do
+          as_atom("VAR")
+          "VAR" |> as_atom()
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> refute_issues()
+    end
+  end
+
+  describe "Enviable.Codex: issues reported" do
+    test "remote calls" do
+      ~S'''
+      defmodule CredoSampleModule do
+        def some_function(value) do
+          Enviable.Codex.as_atom(value)
+          Enviable.Codex.as_module(value)
+          Enviable.Codex.as(value, :atom)
+          Enviable.Codex.as(value, {:list, :module})
+          Enviable.Codex.as_base64(value, as: :atom)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(5)
+    end
+
+    test "piped remote calls" do
+      ~S'''
+      defmodule CredoSampleModule do
+        def some_function do
+          Enviable.Codex.get_env("VAR") |> Enviable.Codex.as_atom()
+          "VAR" |> Enviable.Codex.get_env() |> Enviable.Codex.as(:module)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(2)
+    end
+
+    test "imported calls" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable.Codex
+
+        def some_function do
+          get_env("VAR") |> as_atom()
+          fetch_env!("VAR") |> as({:base64, :module})
+          fetch_env!("VAR") |> as_list(as: :atom)
+          as_module(get_env("VAR"))
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(4)
+    end
+
+    test "both modules imported" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable
+        import Enviable.Codex
+        import Enviable
+
+        def some_function do
+          get_env_as_atom("VAR")
+          get_env("VAR") |> as_atom()
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(2)
+    end
+
+    test "always reports with permit_with_allowed: false" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable.Codex
+
+        def some_function do
+          get_env("VAR") |> as_atom(allowed: [:foo])
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom, permit_with_allowed: false)
+      |> assert_issues(1)
+    end
+
+    test "messages name Enviable.Codex and the safe variant" do
+      ~S'''
+      defmodule CredoSampleModule do
+        import Enviable.Codex
+
+        def some_function do
+          get_env("VAR") |> as_module()
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issue(fn issue ->
+        assert issue.message ==
+                 "Enviable.Codex.as_module can cause atom exhaustion. " <>
+                   "Prefer to use :allowed option or as_safe_module."
+      end)
+    end
+  end
+end
+
+defmodule Enviable.Credo.UnsafeAtomAliasTest do
+  use Credo.Test.Case
+
+  alias Enviable.Credo.UnsafeAtom
+
+  describe "aliases: issues reported" do
+    test "alias Enviable.Codex" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias Enviable.Codex
+
+        def some_function(value) do
+          Codex.as_atom(value)
+          value |> Codex.as(:module)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(2)
+    end
+
+    test "alias with :as" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias Enviable, as: E
+        alias Enviable.Codex, as: C
+
+        def some_function(value) do
+          C.as_atom(value)
+          E.get_env_as_atom("VAR")
+          E.Codex.as_module(value)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(3)
+    end
+
+    test "multi-alias" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias Enviable.{Codex, Value}
+
+        def some_function(value) do
+          Codex.as_list(value, as: :atom)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(1)
+    end
+
+    test "import of an aliased module" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias Enviable.Codex
+        import Codex
+
+        def some_function do
+          get_env("VAR") |> as_atom()
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> assert_issues(1)
+    end
+  end
+
+  describe "aliases: no issues reported" do
+    test "aliases to other modules" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias MyApp.Codex
+        alias MyApp.Enviable
+
+        def some_function(value) do
+          Codex.as_atom(value)
+          Enviable.get_env_as_atom("VAR")
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> refute_issues()
+    end
+
+    test "a later alias shadows Enviable.Codex" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias Enviable.Codex
+        alias MyApp.Codex
+
+        def some_function(value) do
+          Codex.as_atom(value)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> refute_issues()
+    end
+
+    test "unresolvable aliases" do
+      ~S'''
+      defmodule CredoSampleModule do
+        alias __MODULE__.Codex
+
+        def some_function(value) do
+          Codex.as_atom(value)
+        end
+      end
+      '''
+      |> to_source_file()
+      |> run_check(UnsafeAtom)
+      |> refute_issues()
+    end
   end
 end
