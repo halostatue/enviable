@@ -92,12 +92,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - run: |
-          mix compile
-          mix test
+      - run: mix test
         if: ${{ !matrix.quality }}
 
+      - name: test paranoid mode
+        run: |
+          mix 'do' clean + test
+        env:
+          ENVIABLE_PARANOID: true
+          MIX_ENV: test
+
       - run: mix credo --strict
+        if: matrix.quality
+
+      - name: Validate usage rules
+        run: mix usage_rules.validate usage-rules.md usage-rules/*.md
         if: matrix.quality
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

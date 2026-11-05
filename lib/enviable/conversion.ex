@@ -4,7 +4,9 @@ defmodule Enviable.Conversion do
   """
 
   alias Enviable.Conversion.Config
+  alias Enviable.Conversion.Schema
   alias Enviable.Conversion.TimeoutParser, warn: false
+  alias Enviable.Value
 
   atom_exhaustion =
     "[Preventing atom exhaustion](https://erlef.github.io/security-wg/secure_coding_and_deployment_hardening/atom_exhaustion)"
@@ -12,16 +14,7 @@ defmodule Enviable.Conversion do
   atom_options = """
   ### Options
 
-  - `:allowed`: A list of `t:atom/0` values indicating permitted atoms and used as
-    a lookup table, if present. Any value not found will result in an exception.
-
-  - `:default`: The `t:atom/0` or `t:binary/0` value representing the atom value to use if
-    the environment variable is unset (`nil`). If the `:allowed` option is present, the
-    default value must be one of the permitted values.
-
-  - `:downcase`: See `t:opt_atom_downcase/0`.
-
-  - `:upcase`: See `t:opt_atom_upcase/0`.
+  #{Schema.docs(:atom)}
   """
 
   @typedoc """
@@ -58,28 +51,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, which must be `true` or `false`. The default value is
-    `false`.
-  - `:downcase`: This option controls a type conversion's case folding mode passed to
-    `String.downcase/2`. The default is `:default`. `true` has the same meaning as
-    `:default`.
-
-    The default `:downcase` value for boolean conversions can be changed at compile time
-    through application configuration:
-
-    ```elixir
-    config :enviable, :boolean_downcase, true
-    config :enviable, :boolean_downcase, :default
-    config :enviable, :boolean_downcase, :ascii
-    ```
-
-  - `:truthy`, `:falsy`: Only one of `:truthy` or `:falsy` may be specified. It must be
-    a list of `t:binary/0` values. If neither is specified, the default is
-    `truthy: ~w[1 true]`.
-
-    - `:truthy`: if the value to convert is in this list, the result is `true`
-
-    - `:falsy`: if the value to convert is in this list, the result is `false`
+  #{Schema.docs(:boolean)}
   """
   @typedoc since: "1.0.0"
   @type convert_boolean :: :boolean
@@ -89,10 +61,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:base`: The base (an integer value `2..36`). Default is `10`.
-
-  - `:default`: The default value. If specified as a `t:binary/0`, it must be expressed in
-    the `:base` value and convert cleanly to an integer.
+  #{Schema.docs(:integer)}
   """
   @typedoc since: "1.0.0"
   @type convert_integer :: :integer
@@ -102,7 +71,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, either as a `t:charlist/0` or `t:binary/0`.
+  #{Schema.docs(:charlist)}
   """
   @typedoc since: "1.1.0"
   @type convert_charlist :: :charlist
@@ -112,8 +81,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, either as `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
-    or `t:binary/0` (the latter three must convert cleanly to `t:Decimal.t/0`).
+  #{if(Code.ensure_loaded?(Decimal), do: Schema.docs(:decimal), else: "Requires the optional `:decimal` dependency.")}
   """
   @typedoc since: "1.6.0"
   @type convert_decimal :: :decimal
@@ -123,8 +91,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, either as `t:float/0`, `t:integer/0` (converted to
-    float), or `t:binary/0` (which must parse cleanly as float).
+  #{Schema.docs(:float)}
   """
   @typedoc since: "1.1.0"
   @type convert_float :: :float
@@ -146,36 +113,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default value, which may be any valid JSON type.
-
-  - `:engine`: The JSON engine to use. May be provided as a `t:module/0` (which must
-    export `decode/1`), an arity 1 function, or a `t:mfa/0` tuple. When provided with
-    a `t:mfa/0`, the variable value is passed as the first parameter.
-
-    If the engine produces `{:ok, json_value}` or an expected JSON type result, it is
-    considered successful. Any other result is treated as failure.
-
-    The default JSON module is selected from the `:enviable` application configuration
-    option `:json_engine`. If this is unset, the default value is one of the following, in
-    order:
-
-    - [`JSON`][elixir-json] if the Elixir `m:JSON` module is available (Elixir 1.18+)
-    - `:json` if the Erlang/OTP 27+ `m::json` module is available or if
-      [json_polyfill][jp] is installed
-    -  [Jason][jason]
-
-    This example shows using [Thoas][thoas] as the JSON engine.
-
-    ```elixir
-    import Config
-
-    config :enviable, :json_engine, :thoas
-    ```
-
-  [elixir-json]: https://hexdocs.pm/elixir/JSON.html
-  [jp]: https://hexdocs.pm/json_polyfill/readme.html
-  [jason]: https://hexdocs.pm/jason/readme.html
-  [thoas]: https://hexdocs.pm/thoas/readme.html
+  #{Schema.docs(:json)}
   """
   @typedoc since: "1.1.0"
   @type convert_json :: :json
@@ -189,7 +127,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:default`: The default atom value. Must be a valid value.
+  #{Schema.docs(:log_level)}
   """
   @typedoc since: "1.2.0"
   @type convert_log_level :: :log_level
@@ -207,12 +145,7 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:allowed`: A list of `t:module/0` values indicating permitted module and used as
-    a lookup table, if present. Any value not found will result in an exception.
-
-  - `:default`: The `t:module/0` or `t:binary/0` value representing the atom value to use
-    if the environment variable is unset (`nil`). If the `:allowed` option is present, the
-    default value must be one of the permitted values.
+  #{Schema.docs(:module)}
   """
 
   @typedoc """
@@ -244,7 +177,12 @@ defmodule Enviable.Conversion do
   @type convert_safe_module :: :safe_module
 
   @typedoc """
-  Indicates a conversion to `t:Duration.t/0`.
+  Indicates a conversion to `t:Duration.t/0` from an ISO 8601 duration string (see
+  `Duration.from_iso8601/1`).
+
+  ### Options
+
+  #{Schema.docs(:duration)}
   """
   @typedoc since: "2.2.0"
   @type convert_duration :: :duration
@@ -273,39 +211,37 @@ defmodule Enviable.Conversion do
   lowercase suffixes are supported.
 
   See `Kernel.to_timeout/1` for more details.
+
+  ### Options
+
+  #{Schema.docs(:timeout)}
   """
   @typedoc since: "1.7.0"
   @type convert_timeout :: :timeout
 
   @typedoc """
-  Supported default values for timeout conversions.
+  Supported default values for timeout conversions: a timeout string, a `t:timeout/0`,
+  a `t:Duration.t/0`, or a keyword list as accepted by `Kernel.to_timeout/1`.
   """
   @typedoc since: "1.7.0"
   @type timeout_default ::
-          binary()
-          | {:week | :day | :hour | :minute | :second | :millisecond, non_neg_integer()}
+          String.t()
           | timeout()
           | Duration.t()
+          | [{timeout_unit(), non_neg_integer()}]
+
+  @typedoc """
+  Units for keyword list timeout values, as accepted by `Kernel.to_timeout/1`.
+  """
+  @typedoc since: "3.0.0"
+  @type timeout_unit :: :week | :day | :hour | :minute | :second | :millisecond
 
   @typedoc """
   Indicates a conversion from a PEM string through `:public_key.pem_decode/1`.
 
   ### Options
 
-  - `:filter`: Filters the output of `:public_key.pem_decode/1`. Permitted values are
-    `false`, `true`, `:cert`, or `:key`. The default is `true`.
-
-    - `false`: the list is returned without processing, suitable for further processing
-      with `:public_key.pem_entry_decode/2`.
-
-    - `true`: returns the first unencrypted `:PrivateKeyInfo` found, a list of unencrypted
-      `:Certificate` records, or an empty list.
-
-    - `:cert`: returns a list of unencrypted `:Certificate` records or raises an exception
-      if none are found.
-
-    - `:key`: returns the first unencrypted `:PrivateKeyIinfo` record or raises an
-      exception if one is not found.
+  #{Schema.docs(:pem)}
   """
   @typedoc since: "1.1.0"
   @type convert_pem :: :pem
@@ -383,6 +319,23 @@ defmodule Enviable.Conversion do
   @type convert_elixir :: :elixir
 
   @typedoc """
+  Indicates no conversion: the value is returned unchanged.
+
+  This is the conversion used for the decoded value of an encoded conversion without
+  a secondary type (`:base64` is the same as `{:base64, :string}`) and for list entries
+  without a secondary type (`:list` is the same as `{:list, :string}`).
+
+  A value read from the environment or from a list entry is a `t:String.t/0`. A value
+  decoded by a base encoding is a `t:binary/0`, which may not be valid UTF-8.
+
+  ### Options
+
+  #{Schema.docs(:string)}
+  """
+  @typedoc since: "3.0.0"
+  @type convert_string :: :string
+
+  @typedoc """
   All supported primitive conversions.
   """
   @typedoc since: "1.1.0"
@@ -391,15 +344,18 @@ defmodule Enviable.Conversion do
           | convert_boolean
           | convert_charlist
           | convert_decimal
+          | convert_duration
           | convert_elixir
           | convert_erlang
           | convert_float
           | convert_integer
           | convert_json
+          | convert_log_level
           | convert_module
           | convert_pem
           | convert_safe_atom
           | convert_safe_module
+          | convert_string
           | convert_timeout
 
   @typedoc """
@@ -410,13 +366,12 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:case`: The value of `:case` passed to `Base.decode16/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
+  #{Schema.docs(:base16)}
 
   If a secondary type is provided, the options for that type may also be provided.
   """
   @typedoc since: "1.1.0"
-  @type encoded_base16 :: :base16 | {:base16, :string | primitive}
+  @type encoded_base16 :: :base16 | {:base16, primitive}
 
   @typedoc """
   Decodes the value from a base 32 encoded string.
@@ -426,16 +381,12 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:case`: The value of `:case` passed to `Base.decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode32/2`. The default
-    is `false` (the opposite of `Base.decode32/2`).
+  #{Schema.docs(:base32)}
 
   If a secondary type is provided, the options for that type may also be provided.
   """
   @typedoc since: "1.1.0"
-  @type encoded_base32 :: :base32 | {:base32, :string | primitive}
+  @type encoded_base32 :: :base32 | {:base32, primitive}
 
   @typedoc """
   Decodes the value from a base 32 hex encoded string with extended hexadecimal alphabet.
@@ -445,16 +396,12 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:case`: The value of `:case` passed to `Base.hex_decode32/2`, which must be `:upper`,
-    `:lower`, or `:mixed`. The default is `:mixed`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.hex_decode32/2`. The
-    default is `false` (the opposite of `Base.hex_decode32/2`).
+  #{Schema.docs(:hex32)}
 
   If a secondary type is provided, the options for that type may also be provided.
   """
   @typedoc since: "1.1.0"
-  @type encoded_hex32 :: :hex32 | {:hex32, :string | primitive}
+  @type encoded_hex32 :: :hex32 | {:hex32, primitive}
 
   @typedoc """
   Decodes the value from a base 64 encoded string.
@@ -464,16 +411,12 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:ignore_whitespace`: Whether to ignore whitespace values. The default is `true`,
-    the opposite default for both `Base.decode64/2` and `Base.url_decode64/2`.
-
-  - `:padding`: The boolean value of `:padding` passed to `Base.decode64/2`. The default
-    is `false` (the opposite of `Base.decode64/2`).
+  #{Schema.docs(:base64)}
 
   If a secondary type is provided, the options for that type may also be provided.
   """
   @typedoc since: "1.1.0"
-  @type encoded_base64 :: :base64 | :url_base64 | {:base64 | :url_base64, :string | primitive}
+  @type encoded_base64 :: :base64 | :url_base64 | {:base64 | :url_base64, primitive}
 
   @typedoc """
   Decodes the value from a string as a delimiter-separated list.
@@ -483,28 +426,19 @@ defmodule Enviable.Conversion do
 
   ### Options
 
-  - `:delimiter`: The delimiter used to separate the list. This must be a pattern accepted
-    by `String.split/3` (a string, a list of strings, a compiled binary pattern, or
-    a regular expression). Defaults to `","`.
-
-  - `:parts`: The maximum number of parts to split into (`t:pos_integer/0` or
-    `:infinity`). Passed to `String.split/3`.
-
-  - `:trim`: A boolean option whether empty entries should be omitted.
-
-  When the pattern is a regular expression, `Regex.split/3` options are also supported:
-
-  - `:on`: specifies which captures to split the string on, and in what order. Defaults to
-    :first which means captures inside the regex do not affect the splitting process.
-
-  - `:include_captures`: when true, includes in the result the matches of the regular
-    expression. The matches are not counted towards the maximum number of parts if
-    combined with the `:parts` option. Defaults to `false`.
+  #{Schema.docs(:list)}
 
   If a secondary type is provided, the options for that type may also be provided.
   """
   @typedoc since: "1.4.0"
-  @type encoded_list :: :list | {:list, :string | primitive}
+  @type encoded_list :: :list | {:list, primitive}
+
+  @typedoc """
+  Options for the `*_as_list` functions: `:as`, the `t:encoded_list/0` options (including
+  `:default`), and options for the `:as` type.
+  """
+  @typedoc since: "1.4.0"
+  @type as_list_opt :: unquote(Schema.option_typespec(:list, as: :list))
 
   @typedoc """
   All supported encoded conversions.
@@ -518,74 +452,215 @@ defmodule Enviable.Conversion do
   @typedoc since: "1.1.0"
   @type conversion :: primitive | encoded
 
-  @typedoc """
-  This option controls boolean conversion case folding mode passed to `String.downcase/2`.
+  @primitives Schema.primitives()
+  @encodings Schema.encodings()
+  @unlisted Schema.unlisted()
 
-  The default is `false`. `true` has the same meaning as `:default`.
-  """
-  @typedoc since: "2.0.0"
-  @type opt_bool_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
-
-  @typedoc """
-  This option controls atom conversion case folding mode passed to `String.downcase/2`.
-
-  The default is `false`. `true` has the same meaning as `:default`.
-
-  This is mutually exclusive with `upcase`.
-  """
-  @typedoc since: "2.0.0"
-  @type opt_atom_downcase :: {:downcase, true | false | :default | :ascii | :greek | :turkic}
-
-  @typedoc """
-  This option controls a atom conversion case folding mode passed to `String.upcase/2`.
-
-  The default is `false`. `true` has the same meaning as `:default`.
-
-  This is mutually exclusive with `downcase`.
-  """
-  @typedoc since: "2.0.0"
-  @type opt_atom_upcase :: {:upcase, true | false | :default | :ascii | :greek | :turkic}
-
-  @typedoc """
-  This option controls case sensitivity processing for `t:encoded_base16/0`,
-  `t:encoded_base32/0`, or `t:encoded_hex32/0`.
-
-  The default is `:mixed`.
-  """
-  @typedoc since: "2.0.0"
-  @type opt_encoded_case :: {:case, :lower | :mixed | :upper}
-
-  @spec convert_as(value :: nil | binary(), varname :: String.t(), conversion, keyword) :: nil | term()
+  @spec convert_as(Value.t(), conversion, keyword) :: nil | term()
   @doc false
-  def convert_as(value, varname, {encoded, :string}, options) do
-    convert_as(value, varname, encoded, options)
+  def convert_as(%Value{} = value, type, options) do
+    layers = normalize_type!(type)
+
+    if !Keyword.keyword?(options) do
+      option_error!(value, type, nil, "options must be a keyword list")
+    end
+
+    case layers do
+      {:list, inner} -> convert_list(value, type, inner, options)
+      {encoding, inner} -> convert_encoded(value, type, encoding, inner, options)
+      primitive -> convert_primitive(value, type, primitive, options)
+    end
   end
 
-  def convert_as(value, varname, {:list, type}, options) do
-    value
-    |> convert_as(varname, :list, options)
+  # Normalizes a conversion to a primitive or an `{encoding, primitive}` pair, raising
+  # before any conversion if the conversion is not supported. A bare encoding is
+  # `{encoding, :string}`.
+  if :decimal not in Schema.primitives() do
+    defp normalize_type!(:decimal), do: unsupported!(:decimal, "requires the optional `:decimal` dependency")
+
+    defp normalize_type!({encoding, :decimal}) when encoding in @encodings,
+      do: unsupported!({encoding, :decimal}, "requires the optional `:decimal` dependency")
+  end
+
+  defp normalize_type!(type) when type in @primitives, do: type
+  defp normalize_type!(type) when type in @encodings, do: {type, :string}
+
+  defp normalize_type!({:list, inner}) when inner in @unlisted,
+    do: unsupported!({:list, inner}, "`#{inspect(inner)}` values cannot be list elements")
+
+  defp normalize_type!({encoding, inner} = type) when encoding in @encodings and inner in @primitives, do: type
+
+  defp normalize_type!({encoding, inner} = type)
+       when encoding in @encodings and (inner in @encodings or is_tuple(inner)),
+       do: unsupported!(type, "encoded conversions cannot be nested")
+
+  defp normalize_type!(type), do: unsupported!(type, "unknown conversion type")
+
+  defp unsupported!(type, reason), do: raise(Enviable.UnsupportedConversionError, type: type, reason: reason)
+
+  defp convert_primitive(value, requested, type, options) do
+    config = parse!(value, requested, type, options)
+    convert_value(value, type, config)
+  end
+
+  # A `:default` for an encoded conversion is a default for the decoded result, prepared
+  # by the inner type (`:string` for `enc`, or `t` for `{enc, t}`).
+  defp convert_encoded(value, requested, encoding, inner, options) do
+    {default, options} = pop_default(options)
+    {outer_opts, inner_opts} = split!(value, requested, encoding, inner, options)
+    encoding_config = parse!(value, requested, encoding, outer_opts)
+    inner_opts = if default == :none, do: inner_opts, else: [{:default, elem(default, 1)} | inner_opts]
+    inner_config = parse!(value, requested, inner, inner_opts)
+    decoded = convert_value(value, encoding, encoding_config)
+    convert_value(%{value | value: decoded}, inner, inner_config)
+  end
+
+  defp convert_list(value, requested, inner, options) do
+    {default, options} = pop_default(options)
+    {list_opts, inner_opts} = split!(value, requested, :list, inner, options)
+
+    list_config =
+      parse!(
+        value,
+        requested,
+        :list,
+        if(default == :none, do: list_opts, else: [{:default, elem(default, 1)} | list_opts])
+      )
+
+    inner_config = parse!(value, requested, inner, inner_opts)
+
+    # A list default is checked now, but converted only if it is used.
+    default = list_default(value, requested, inner, inner_config, default)
+
+    case {value, default} do
+      {%Value{value: nil}, :none} ->
+        nil
+
+      {%Value{value: nil}, {:final, list}} ->
+        list
+
+      {%Value{value: nil}, {:string, string}} ->
+        split_list(%{value | value: string, source: :default}, inner, list_config, inner_config)
+
+      {%Value{value: nil}, {:strings, list}} ->
+        convert_elements(%{value | source: :default}, list, inner, inner_config)
+
+      {value, _default} ->
+        split_list(value, inner, list_config, inner_config)
+    end
+  end
+
+  defp pop_default(options) do
+    case Keyword.fetch(options, :default) do
+      {:ok, default} -> {{:some, default}, Keyword.delete(options, :default)}
+      :error -> {:none, options}
+    end
+  end
+
+  # - a string is split and converted as if it were the value
+  # - a list of strings is converted element by element as if each were a list entry
+  # - any other list is prepared element by element as defaults for the element type
+  defp list_default(_value, _requested, _inner, _inner_config, :none), do: :none
+
+  defp list_default(_value, _requested, _inner, _inner_config, {:some, default}) when is_binary(default),
+    do: {:string, default}
+
+  defp list_default(value, requested, inner, inner_config, {:some, default}) do
+    cond do
+      Enum.all?(default, &is_binary/1) ->
+        {:strings, default}
+
+      Enum.any?(default, &is_binary/1) ->
+        option_error!(value, requested, :default, "a list `:default` must contain only strings or no strings")
+
+      true ->
+        prepared =
+          default
+          |> Enum.with_index()
+          |> Enum.map(fn {item, index} ->
+            prepare_default_element!(value, requested, inner, inner_config, item, index)
+          end)
+
+        {:final, prepared}
+    end
+  end
+
+  defp prepare_default_element!(value, requested, inner, inner_config, item, index) do
+    case Config.prepare_default(inner, item, inner_config) do
+      {:ok, prepared} ->
+        prepared
+
+      {:error, key, reason} ->
+        option_error!(%{value | source: :default, index: index}, requested, key, reason)
+    end
+  end
+
+  defp split_list(%Value{} = value, inner, list_config, inner_config) do
+    elements =
+      value
+      |> Value.__unwrap__()
+      |> String.split(list_config.delimiter, list_config.split_opts)
+
+    convert_elements(value, elements, inner, inner_config)
+  end
+
+  defp convert_elements(value, elements, inner, inner_config) do
+    elements
     |> Enum.with_index()
-    |> Enum.map(fn {value, index} -> convert_as(value, "#{varname}[#{index}]", type, options) end)
+    |> Enum.map(fn {item, index} ->
+      convert_value(%{value | value: item, index: index}, inner, inner_config)
+    end)
   end
 
-  def convert_as(value, varname, {encoded, type}, options) do
-    value
-    |> convert_as(varname, encoded, options)
-    |> convert_as(varname, type, options)
+  # Routes options to the outer (encoding) and inner (primitive) layers. The layers' keys
+  # are disjoint; anything else is unknown.
+  defp split!(value, requested, outer, inner, options) do
+    outer_keys = Schema.keys(outer)
+    inner_keys = Schema.keys(inner) -- [:default]
+
+    {outer_opts, rest} = Keyword.split(options, outer_keys)
+    {inner_opts, unknown} = Keyword.split(rest, inner_keys)
+
+    if unknown == [] do
+      {outer_opts, inner_opts}
+    else
+      unknown_keys =
+        unknown
+        |> Keyword.keys()
+        |> Enum.uniq()
+
+      option_error!(value, requested, unknown_keys, Schema.unknown_reason(unknown_keys, outer_keys ++ inner_keys))
+    end
   end
 
-  def convert_as(value, varname, type, options) do
+  defp parse!(value, requested, type, options) do
     case Config.parse(type, options) do
-      {:ok, config} ->
-        value = casefold(value, config[:casefold])
+      {:ok, config} -> config
+      {:error, key, reason} -> option_error!(value, requested, key, reason)
+    end
+  end
 
-        case convert_to(type, value, config) do
-          {:ok, result} -> result
-          :error -> raise Enviable.ConversionError, env: varname, type: type
-        end
+  defp option_error!(%Value{} = value, requested, key, reason) do
+    raise Enviable.OptionError,
+      env: value.name,
+      source: value.source,
+      index: value.index,
+      type: requested,
+      key: key,
+      reason: reason
+  end
 
-      {:error, reason} ->
-        raise ArgumentError, "could not convert environment variable #{inspect(varname)} to type #{type}: #{reason}"
+  defp convert_value(%Value{value: nil}, _type, config), do: Map.get(config, :default)
+
+  defp convert_value(%Value{} = value, type, config) do
+    raw = Value.__unwrap__(value)
+
+    case convert_to(type, casefold(raw, config[:casefold]), config) do
+      {:ok, result} ->
+        result
+
+      :error ->
+        raise Enviable.ConversionError, env: value.name, type: type, source: value.source, index: value.index
     end
   end
 
@@ -594,14 +669,6 @@ defmodule Enviable.Conversion do
                    is_number(value)
 
   @spec convert_to(conversion, nil | binary(), map()) :: {:ok, nil | term()} | :error
-  defp convert_to(_type, nil, %{default: default}) do
-    {:ok, default}
-  end
-
-  defp convert_to(_type, nil, _config) do
-    {:ok, nil}
-  end
-
   defp convert_to(type, value, %{allowed: allowed})
        when type in [:atom, :module, :safe_atom, :safe_module] and is_map(allowed) do
     Map.fetch(allowed, value)
@@ -661,6 +728,7 @@ defmodule Enviable.Conversion do
     Map.fetch(@log_levels_map, String.downcase(value))
   end
 
+  # sobelow_skip ["DOS.ModuleConcat"]
   defp convert_to(:module, value, _config) do
     # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
     {:ok, Module.concat([value])}
@@ -689,6 +757,8 @@ defmodule Enviable.Conversion do
         end
     end
   end
+
+  defp convert_to(:string, value, _config), do: {:ok, value}
 
   defp convert_to(:safe_atom, value, _config) do
     {:ok, String.to_existing_atom(value)}
@@ -763,11 +833,6 @@ defmodule Enviable.Conversion do
     Base.url_decode64(value, opts)
   end
 
-  defp convert_to(:list, value, %{decode_opts: opts}) do
-    {delimiter, opts} = Keyword.pop(opts, :delimiter)
-    {:ok, String.split(value, delimiter, opts)}
-  end
-
   defp decode_json(value, engine) when is_function(engine, 1) do
     engine.(value)
   rescue
@@ -790,7 +855,6 @@ defmodule Enviable.Conversion do
   defp public_key_filter([{:Certificate, ct, :not_encrypted} | rest]), do: [ct | public_key_filter(rest)]
   defp public_key_filter([]), do: []
 
-  defp casefold(nil, _config), do: nil
   defp casefold(value, nil), do: value
   defp casefold(value, {_foldtype, false}), do: value
   defp casefold(value, {:upcase, type}), do: String.upcase(value, type)

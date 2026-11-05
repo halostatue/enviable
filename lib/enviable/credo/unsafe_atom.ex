@@ -9,33 +9,25 @@ if Code.ensure_loaded?(Credo.Check) do
       category: :warning,
       explanations: [
         check: ~S"""
-        Creating atoms from environment variables dynamically is a potentially unsafe
+        Creating atoms from environment variables dynamically is considered unsafe
         because atoms are not garbage-collected by the runtime.
 
-        Enviable functions that convert to atoms or modules should use the `:allowed`
-        option to restrict which atoms can be created:
+        Enviable and Enviable.Codex functions that convert to atoms or modules
+        should use the `:allowed` option to restrict which atoms can be created or
+        use the safe_ variants that only work with existing atoms. This applies to
+        both the named and generic conversion functions and encoded types:
+
+            alias Envible.Codex
 
             Enviable.get_env_as_atom("VAR", allowed: [:foo, :bar])
-            Enviable.fetch_env_as_module!("MODULE", allowed: [MyApp.Foo, MyApp.Bar])
-
-        Or use the safe variants that only work with existing atoms:
+            Codex.get_env("VAR") |> Codex.as_atom(allowed: [:foo, :bar])
 
             Enviable.get_env_as_safe_atom("VAR")
-            Enviable.fetch_env_as_safe_module("MODULE")
+            Enviable.get_env_as("VAR", {:base64, :safe_atom})
+            Codex.get_env("VAR"0 |> Codex.as({:base64, :safe_module})
 
-        This also applies to generic conversion functions and encoded types:
-
-            # Unsafe
-            Enviable.get_env_as("VAR", :atom)
-            Enviable.get_env_as("VAR", {:base64, :module})
-            Enviable.get_env_as_list("ITEMS", as: :atom)
-
-            # Safe alternatives
-            Enviable.get_env_as("VAR", :safe_atom)
-            Enviable.get_env_as("VAR", {:base64, :safe_module})
-            Enviable.get_env_as_list("ITEMS", as: :safe_atom)
-
-        When using `import Enviable`, the check applies to bare function calls:
+        When either Enviable or Enviable.Codex are imported, the check applies to
+        bare function calls:
 
             import Enviable
 
@@ -46,6 +38,16 @@ if Code.ensure_loaded?(Credo.Check) do
             # Safe
             get_env_as_safe_atom("VAR")
             fetch_env_as_list!("ITEMS", as: :safe_module)
+
+            import Enviable.Codex
+
+            # Unsafe
+            get_env("VAR") |> as_atom()
+            fetch_env!("ITEMS") |> as_list(as: :module)
+
+            # Safe
+            get_env("VAR") |> as_safe_atom()
+            fetch_env!("ITEMS") |> as_list(as: :safe_module)
 
         This check can be configured to always warn even when using the `:allowed`
         option:
@@ -61,141 +63,141 @@ if Code.ensure_loaded?(Credo.Check) do
     alias Credo.Check.Context
     alias Credo.Check.Params
     alias Credo.SourceFile
+    alias Enviable.Credo.Walker
+
+    @unsafe_types [:atom, :module]
+
+    @unsafe_functions %{
+      Enviable => %{
+        direct: [
+          :get_env_as_atom,
+          :fetch_env_as_atom,
+          :fetch_env_as_atom!,
+          :get_env_as_module,
+          :fetch_env_as_module,
+          :fetch_env_as_module!
+        ],
+        generic: [:get_env_as, :fetch_env_as, :fetch_env_as!],
+        wrapper: [
+          :get_env_as_base16,
+          :get_env_as_base32,
+          :get_env_as_base64,
+          :get_env_as_url_base64,
+          :get_env_as_hex32,
+          :get_env_as_list,
+          :fetch_env_as_base16,
+          :fetch_env_as_base32,
+          :fetch_env_as_base64,
+          :fetch_env_as_url_base64,
+          :fetch_env_as_hex32,
+          :fetch_env_as_list,
+          :fetch_env_as_base16!,
+          :fetch_env_as_base32!,
+          :fetch_env_as_base64!,
+          :fetch_env_as_url_base64!,
+          :fetch_env_as_hex32!,
+          :fetch_env_as_list!
+        ]
+      },
+      Enviable.Codex => %{
+        direct: [:as_atom, :as_module],
+        generic: [:as],
+        wrapper: [:as_base16, :as_base32, :as_base64, :as_url_base64, :as_hex32, :as_list]
+      }
+    }
 
     @doc false
     @impl Credo.Check
     def run(%SourceFile{} = source_file, params) do
       ctx = Context.build(source_file, params, __MODULE__)
       permit_with_allowed = Params.get(params, :permit_with_allowed, __MODULE__)
-      result = Credo.Code.prewalk(source_file, &walk(&1, &2, permit_with_allowed), ctx)
+
+      result =
+        Walker.calls(source_file, ctx, fn call, ctx ->
+          check_call(ctx, call, permit_with_allowed)
+        end)
+
       result.issues
     end
 
-    defp walk({{:., _meta1, [{:__aliases__, _, [:Enviable]}, fun]}, meta, args} = ast, ctx, permit_with_allowed) do
-      case get_forbidden_call(fun, args, permit_with_allowed) do
-        {bad, suggestion, trigger} ->
-          {ast, put_issue(ctx, issue_for(ctx, meta, bad, suggestion, trigger))}
-
-        nil ->
-          {ast, ctx}
+    defp check_call(ctx, %{module: module, fun: fun, args: args, meta: meta}, permit_with_allowed) do
+      case get_forbidden_call(module, fun, args, permit_with_allowed) do
+        {bad, suggestion, trigger} -> put_issue(ctx, issue_for(ctx, meta, bad, suggestion, trigger))
+        nil -> ctx
       end
     end
 
-    defp walk({fun, meta, args} = ast, %{module_contains_import: true} = ctx, permit_with_allowed)
-         when is_atom(fun) and is_list(args) do
-      case get_forbidden_call(fun, args, permit_with_allowed) do
-        {bad, suggestion, trigger} ->
-          {ast, put_issue(ctx, issue_for(ctx, meta, bad, suggestion, trigger))}
+    defp get_forbidden_call(module, fun, args, permit_with_allowed) do
+      functions = Map.fetch!(@unsafe_functions, module)
+      name = "#{inspect(module)}.#{fun}"
 
-        nil ->
-          {ast, ctx}
-      end
-    end
+      cond do
+        fun in functions.direct ->
+          check_allowed_option(args, permit_with_allowed, name, "use :allowed option or #{safe_variant(fun)}", name)
 
-    defp walk({:import, _, [{:__aliases__, _, [:Enviable]}]} = ast, ctx, _permit_with_allowed) do
-      {ast, Map.put(ctx, :module_contains_import, true)}
-    end
+        fun in functions.generic ->
+          check_generic(args, permit_with_allowed, name)
 
-    defp walk(ast, ctx, _permit_with_allowed) do
-      {ast, ctx}
-    end
+        fun in functions.wrapper ->
+          check_wrapper(args, permit_with_allowed, name)
 
-    @unsafe_atom [:get_env_as_atom, :fetch_env_as_atom, :fetch_env_as_atom!]
-
-    # Direct unsafe functions
-    defp get_forbidden_call(fun, args, permit_with_allowed) when fun in @unsafe_atom do
-      check_allowed_option(
-        args,
-        permit_with_allowed,
-        "Enviable.#{fun}",
-        "use :allowed option or get_env_as_safe_atom",
-        "Enviable.#{fun}"
-      )
-    end
-
-    @unsafe_module [:get_env_as_module, :fetch_env_as_module, :fetch_env_as_module!]
-
-    defp get_forbidden_call(fun, args, permit_with_allowed) when fun in @unsafe_module do
-      check_allowed_option(
-        args,
-        permit_with_allowed,
-        "Enviable.#{fun}",
-        "use :allowed option or get_env_as_safe_module",
-        "Enviable.#{fun}"
-      )
-    end
-
-    @unsafe_generic [:get_env_as, :fetch_env_as, :fetch_env_as!]
-
-    defp get_forbidden_call(fun, [_var, type | rest], permit_with_allowed)
-         when fun in @unsafe_generic and type in [:atom, :module] do
-      check_allowed_option(
-        rest,
-        permit_with_allowed,
-        "Enviable.#{fun}(..., :#{type})",
-        "use :allowed option or :safe_#{type}",
-        "Enviable.#{fun}"
-      )
-    end
-
-    defp get_forbidden_call(fun, [_var, {type_wrapper, type} | rest], permit_with_allowed)
-         when fun in @unsafe_generic and type in [:atom, :module] do
-      check_allowed_option(
-        rest,
-        permit_with_allowed,
-        "Enviable.#{fun}(..., {#{inspect(type_wrapper)}, :#{type}})",
-        "use :allowed option or :safe_#{type}",
-        "Enviable.#{fun}"
-      )
-    end
-
-    @unsafe_encoded [
-      :get_env_as_base16,
-      :get_env_as_base32,
-      :get_env_as_base64,
-      :get_env_as_url_base64,
-      :get_env_as_hex32,
-      :get_env_as_list,
-      :fetch_env_as_base16,
-      :fetch_env_as_base32,
-      :fetch_env_as_base64,
-      :fetch_env_as_url_base64,
-      :fetch_env_as_hex32,
-      :fetch_env_as_list,
-      :fetch_env_as_base16!,
-      :fetch_env_as_base32!,
-      :fetch_env_as_base64!,
-      :fetch_env_as_url_base64!,
-      :fetch_env_as_hex32!,
-      :fetch_env_as_list!
-    ]
-
-    # Encoded functions with as: :atom or as: :module
-    defp get_forbidden_call(fun, args, permit_with_allowed) when fun in @unsafe_encoded do
-      case has_unsafe_as_option(args) do
-        {:unsafe, type} ->
-          check_allowed_option(
-            args,
-            permit_with_allowed,
-            "Enviable.#{fun}(..., as: :#{type})",
-            "use :allowed option or as: :safe_#{type}",
-            "Enviable.#{fun}"
-          )
-
-        nil ->
+        true ->
           nil
       end
     end
 
-    defp get_forbidden_call(_fun, _args, _permit_with_allowed), do: nil
+    defp safe_variant(fun), do: String.replace(to_string(fun), ~r/_(atom|module)/, "_safe_\\1")
 
-    defp has_unsafe_as_option(args) do
-      Enum.find_value(args, fn
+    defp check_generic([_var, type | rest], permit_with_allowed, name) when type in @unsafe_types do
+      check_allowed_option(
+        rest,
+        permit_with_allowed,
+        "#{name}(..., :#{type})",
+        "use :allowed option or :safe_#{type}",
+        name
+      )
+    end
+
+    defp check_generic([_var, {type_wrapper, type} | rest], permit_with_allowed, name) when type in @unsafe_types do
+      check_allowed_option(
+        rest,
+        permit_with_allowed,
+        "#{name}(..., {#{inspect(type_wrapper)}, :#{type}})",
+        "use :allowed option or :safe_#{type}",
+        name
+      )
+    end
+
+    defp check_generic(_args, _permit_with_allowed, _name), do: nil
+
+    # Encoded and list functions with as: :atom or as: :module
+    defp check_wrapper(args, permit_with_allowed, name) do
+      case option_value(args, :as) do
+        {:ok, type} when type in @unsafe_types ->
+          check_allowed_option(
+            args,
+            permit_with_allowed,
+            "#{name}(..., as: :#{type})",
+            "use :allowed option or as: :safe_#{type}",
+            name
+          )
+
+        _ ->
+          nil
+      end
+    end
+
+    # Finds `key` in any literal keyword list argument. Arguments are ASTs, so lists may
+    # contain anything (`[as]` is a list holding a variable AST).
+    defp option_value(:capture, _key), do: :error
+
+    defp option_value(args, key) do
+      Enum.find_value(args, :error, fn
         opts when is_list(opts) ->
-          case Keyword.get(opts, :as) do
-            type when type in [:atom, :module] -> {:unsafe, type}
+          Enum.find_value(opts, fn
+            {^key, value} -> {:ok, value}
             _ -> nil
-          end
+          end)
 
         _ ->
           nil
@@ -203,13 +205,10 @@ if Code.ensure_loaded?(Credo.Check) do
     end
 
     defp check_allowed_option(args, true = _permit_with_allowed, bad, suggestion, trigger) do
-      has_allowed =
-        Enum.any?(args, fn
-          opts when is_list(opts) -> Keyword.has_key?(opts, :allowed)
-          _ -> false
-        end)
-
-      if !has_allowed, do: {bad, suggestion, trigger}
+      case option_value(args, :allowed) do
+        {:ok, _} -> nil
+        :error -> {bad, suggestion, trigger}
+      end
     end
 
     defp check_allowed_option(_args, false = _permit_with_allowed, bad, suggestion, trigger) do

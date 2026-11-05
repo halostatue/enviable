@@ -1,7 +1,7 @@
 defmodule EnviableTest do
   use ExUnit.Case
 
-  doctest Enviable
+  doctest Enviable, import: true
 
   @test_var "ENVIABLE_TEST_VAR"
 
@@ -69,7 +69,46 @@ defmodule EnviableTest do
     end
 
     test "accepts explicit defaults" do
-      assert 30_000 = Enviable.get_env_as_timeout("UNSET", default: "30s", second: 30)
+      assert 30_000 = Enviable.get_env_as_timeout("UNSET", default: "30s")
+    end
+
+    test "rejects unknown options alongside explicit defaults" do
+      assert_raise Enviable.OptionError, ~r/unknown option `:second`/, fn ->
+        Enviable.get_env_as_timeout("UNSET", default: "30s", second: 30)
+      end
+    end
+  end
+
+  describe "fetch_env_as drops :default" do
+    test "invalid defaults are not validated" do
+      System.put_env(@test_var, "7")
+
+      assert {:ok, 7} == Enviable.fetch_env_as(@test_var, :integer, default: 3.5)
+      assert 7 == Enviable.fetch_env_as!(@test_var, :integer, default: 3.5)
+      assert {:ok, 7} == Enviable.fetch_env_as_integer(@test_var, default: 3.5)
+      assert 7 == Enviable.fetch_env_as_integer!(@test_var, default: 3.5)
+    end
+
+    test "defaults for encoded and list conversions are dropped" do
+      System.put_env(@test_var, Base.encode16("7"))
+      assert {:ok, 7} == Enviable.fetch_env_as_base16(@test_var, as: :integer, default: :bad)
+
+      System.put_env(@test_var, "1,2")
+      assert [1, 2] == Enviable.fetch_env_as_list!(@test_var, as: :integer, default: [1, "mixed"])
+    end
+
+    test "unset variables are still errors" do
+      assert :error == Enviable.fetch_env_as(@test_var, :integer, default: 5)
+
+      assert_raise System.EnvError, fn -> Enviable.fetch_env_as!(@test_var, :integer, default: 5) end
+    end
+
+    test "other options are still validated" do
+      System.put_env(@test_var, "7")
+
+      assert_raise Enviable.OptionError, ~r/unknown option `:bsae`/, fn ->
+        Enviable.fetch_env_as(@test_var, :integer, default: 5, bsae: 16)
+      end
     end
   end
 end
