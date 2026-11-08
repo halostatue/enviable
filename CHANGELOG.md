@@ -1,6 +1,6 @@
 # Enviable Changelog
 
-## 3.1.0 / 2026-11-DD
+## 3.1.0 / 2026-11-08
 
 > Implemented with [Kiro][kiro], with auto routing.
 
