@@ -31,6 +31,11 @@ as_integer(port)  # => 5432
 - **`Inspect`** — hides the value, so a `Value` can be logged without leaking a
   secret.
 - **`set?/1` / `unset?/1`** — test whether the inner value is present.
+- **`env_set?/1` / `env_unset?/1`** — test whether a variable is set in the
+  environment by name (or a `Value`'s name), read non-destructively with no
+  default applied: `env_set?("PHX_SERVER")`. Unlike `set?/1` on a `Value`, these
+  query the live environment, so `env_set?(%Value{name: "X", value: nil})` reads
+  `X` from the table rather than reporting on the struct.
 
 A `Value` may be passed anywhere Codex takes a variable name or value, including
 `get_env/1,2`, `put_env/1,2`, and `put_env_new/1,2`.
@@ -44,6 +49,9 @@ fetch_env!("PORT")      # Value, raises System.EnvError if unset
 fetch_env("PORT")       # {:ok, Value} | :error
 get_env("PORT")         # Value (unset unless defaulted)
 get_env("PORT", "4000") # Value wrapping the default when unset
+
+# Replace the default System.EnvError message when unset:
+fetch_env!("SECRET_KEY", or_raise: "SECRET_KEY must be set")
 ```
 
 ### Environment maps
@@ -60,7 +68,12 @@ fetch_env_map(values, "PORT")              # {:ok, Value} | :error
 get_env_map(values, "PORT", "4000")        # Value, with default
 ```
 
-`fetch_env_map!/2` raises `Enviable.EnvMapError` when the key is absent.
+`fetch_env_map!/2` raises `Enviable.EnvMapError` when the key is absent, or
+raises a custom message with `or_raise:`:
+
+```elixir
+fetch_env_map!(values, "SECRET_KEY", or_raise: "SECRET_KEY must be set")
+```
 
 ### Once-only (read-and-erase)
 
@@ -70,9 +83,13 @@ read, before any conversion runs.
 
 ```elixir
 fetch_env_once!("SECRET_KEY") |> as_string()
+fetch_env_once!("SECRET_KEY", or_raise: "SECRET_KEY must be set")
 fetch_env_once("SECRET_KEY")   # {:ok, Value} | :error
 get_env_once("SECRET_KEY")     # Value
 ```
+
+A conversion step (`as_*`) also accepts `or_raise:` to raise on an unset value
+instead of returning `nil` or a default (see `enviable:conversions`).
 
 There is no map variant — a map is not the system env table, so there is
 nothing to erase.

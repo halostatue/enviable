@@ -17,6 +17,37 @@ defmodule Enviable.CodexTest do
     :ok
   end
 
+  describe "env_set?/1 and env_unset?/1" do
+    test "report the live environment for a name" do
+      System.delete_env(@test_var)
+      assert Codex.env_unset?(@test_var)
+      refute Codex.env_set?(@test_var)
+
+      System.put_env(@test_var, "x")
+      assert Codex.env_set?(@test_var)
+      refute Codex.env_unset?(@test_var)
+    end
+
+    test "read the live environment by a Value's name, ignoring its inner value" do
+      System.put_env(@test_var, "live")
+
+      unset_struct = %Value{name: @test_var, value: nil}
+      assert Codex.env_set?(unset_struct)
+      refute Codex.env_unset?(unset_struct)
+
+      System.delete_env(@test_var)
+      refute Codex.env_set?(unset_struct)
+      assert Codex.env_unset?(unset_struct)
+    end
+
+    test "do not apply a default and do not erase the variable" do
+      System.put_env(@test_var, "keep")
+      assert Codex.env_set?(@test_var)
+      assert Codex.env_set?(@test_var)
+      assert System.get_env(@test_var) == "keep"
+    end
+  end
+
   describe "env maps holding a Value" do
     test "fetch_env_map/2 preserves a stored Value, keeping it secure" do
       secured = Value.secure(%Value{name: "ORIG", value: "s3cr3t", source: :map})

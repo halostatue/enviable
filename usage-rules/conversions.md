@@ -49,7 +49,13 @@ as_boolean(v)
 as_boolean(v, default: true)
 as_boolean(v, truthy: ["enabled", "on"])     # listed values true, others false
 as_boolean(v, default: true, falsy: ["off"]) # listed values false, others true
-# :truthy and :falsy are mutually exclusive.
+# :truthy and :falsy cannot both be provided.
+
+# Map the computed boolean to arbitrary terms. :then and :else are both
+# required; the result is a term, not a strict boolean(). The boolean is
+# resolved first (honoring :truthy/:falsy/:default), then mapped.
+as_boolean(v, then: [:inet6], else: [])
+as_boolean(v, default: true, then: [:inet6], else: [])
 ```
 
 ### Integer / float
@@ -116,6 +122,23 @@ as_base64(v)
 as_url_base64(v)
 as_pem(v, filter: :cert)   # :cert | :key to select entry types
 ```
+
+## Raising on an unset variable (`:or_raise`)
+
+Every conversion accepts `or_raise: "message"`. When the variable is unset, an
+exception is raised with that message instead of returning `nil` or a
+`:default`. It is mutually exclusive with `:default` — providing both raises
+`Enviable.OptionError`.
+
+```elixir
+get_env("SECRET_KEY_BASE") |> as_string(or_raise: "SECRET_KEY_BASE must be set")
+get_env_as_integer("PORT", or_raise: "PORT must be set")   # classic
+get_env("PORT") |> as({:base64, :integer}, or_raise: "PORT must be set")
+```
+
+The `fetch_*!` / `fetch_env_as_*!` families also accept `or_raise:` (see
+`enviable:classic` and `enviable:codex`); there it replaces the default
+`System.EnvError` message.
 
 ## Chained conversions (`:as`)
 

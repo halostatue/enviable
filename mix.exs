@@ -3,7 +3,7 @@ defmodule Enviable.MixProject do
 
   @app :enviable
   @project_url "https://github.com/halostatue/enviable"
-  @version "3.0.0"
+  @version "3.1.0"
 
   def project do
     [

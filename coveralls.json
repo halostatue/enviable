@@ -1,7 +1,9 @@
 {
   "skip_files": [
+    "lib/enviable/conversion/schema\\.ex$",
     "lib/enviable/conversion/schema/type_doc\\.ex$",
     "lib/enviable/conversion/schema/type_spec\\.ex$",
-    "lib/enviable/credo\\.ex$"
+    "lib/enviable/credo\\.ex$",
+    "test/"
   ]
 }

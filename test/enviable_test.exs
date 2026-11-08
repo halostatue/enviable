@@ -4,6 +4,7 @@ defmodule EnviableTest do
   doctest Enviable, import: true
 
   @test_var "ENVIABLE_TEST_VAR"
+  @test_var_atom :ENVIABLE_TEST_VAR
 
   setup do
     System.delete_env(@test_var)
@@ -43,12 +44,10 @@ defmodule EnviableTest do
       Enviable.put_env(%{@test_var => "MAP_STRING"})
       assert Enviable.get_env(@test_var) == "MAP_STRING"
 
-      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      Enviable.put_env([{String.to_atom(@test_var), "KW_ATOM"}])
+      Enviable.put_env([{@test_var_atom, "KW_ATOM"}])
       assert Enviable.get_env(@test_var) == "KW_ATOM"
 
-      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
-      Enviable.put_env([{String.to_atom(@test_var), nil}])
+      Enviable.put_env([{@test_var_atom, nil}])
       assert Enviable.get_env(@test_var) == nil
     end
   end

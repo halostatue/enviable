@@ -1,5 +1,81 @@
 # Enviable Changelog
 
+## 3.1.0 / 2026-11-DD
+
+> Implemented with [Kiro][kiro], with auto routing.
+
+- `fetch!` functions in both Enviable and Enviable.Codex accept an
+  `or_raise: String.t()` option. If the variable is unset, an exception will
+  be raised with the provided message instead of default `fetch!` errors.
+
+  ```elixir
+  # Instead of:
+  get_env("PORT") || raise ~S("PORT" is a required variable)
+
+  # Use this:
+  fetch_env!("PORT", or_raise: ~S("PORT" is a required variable))
+  fetch_env_as_integer!("PORT", or_raise: ~S("PORT" is a required variable))
+  ```
+
+- Conversion functions accept an `or_raise: String.t()` option. If the
+  provided value is unset, an exception will be raised with the provided
+  message. `Enviable.OptionError` will be raised if both `default:` _and_
+  `or_raise:` are provided.
+
+  ```elixir
+  # Instead of:
+  get_env("PORT") || raise ~S("PORT" is a required variable)
+
+  # Use this:
+  get_env("PORT") |> as_integer(or_raise: ~S("PORT" is a required variable))
+  get_env_as_integer("PORT", or_raise: ~S("PORT" is a required variable))
+  ```
+
+- Boolean conversion has two new options that map the computed boolean value
+  to terms. `as_boolean(value, then: [:inet6], else: [])` would no longer
+  return a strict `boolean()` value, but would return a `term`. Both `then`
+  and `else` are required if one is used; `Enviable.OptionError` will be
+  raised if one is missing.
+
+  ```elixir
+  # Without then/else
+  ipv6_if_enabled = if get_env("ECTO_IPV6") |> as_boolean(), do: [:inet6], else: []
+
+  # With then/else using Enviable.Codex
+  ipv6_if_enabled = get_env("ECTO_IPV6") |> as_boolean(then: [:inet6], else: [])
+
+  # With then/else using Enviable
+  ipv6_if_enabled = get_env_as_boolean("ECTO_IPV6", then: [:inet6], else: [])
+  ```
+
+- `Enviable.Codex` has two new presence functions, `env_set?/1` and
+  `env_unset?/1`. They accept `String.t() | Enviable.Value.t()` and are sugar
+  for a `nil` check of the return value of `get_env/1` in `Enviable` or
+  `System`.
+
+  ```elixir
+  # With Enviable
+  if get_env("PHX_SERVER") do
+    config :my_app, MyApp.Endpoint, server: true
+  end
+
+  # With Enviable.Codex
+  if env_set?("PHX_SERVER") do
+    config :my_app, MyApp.Endpoint, server: true
+  end
+
+  # More verbose Enviable.Codex
+  if get_env("PHX_SERVER") |> set?() do
+    config :my_app, MyApp.Endpoint, server: true
+  end
+  ```
+
+- Fixed a value leak in `safe_atom` and `safe_module` conversions when the
+  value is not an already existing atom or module.
+
+- Clarified documentation around bare default values. As a side effect of
+  this, `charlist` conversion functions accept a list as a bare default value.
+
 ## 3.0.0 / 2026-11-06
 
 > Implemented with [Kiro][kiro], mostly using Claude Opus 5.5. Most of the

@@ -1,7 +1,7 @@
 defmodule Enviable.Errors do
-  # Shared formatting for Enviable exception messages.
-
   @moduledoc false
+
+  # Shared formatting for Enviable exception messages.
 
   @doc """
   Describes the value being converted.
@@ -105,7 +105,9 @@ defmodule Enviable.UnsupportedConversionError do
   @type t :: %__MODULE__{type: term(), reason: String.t()}
 
   @impl Exception
-  def message(%{type: type, reason: reason}), do: "unsupported conversion #{inspect(type)}: #{reason}"
+  def message(%{type: type, reason: reason}) do
+    "unsupported conversion #{Enviable.Errors.format_type(type)}: #{reason}"
+  end
 end
 
 defmodule Enviable.EnvMapError do

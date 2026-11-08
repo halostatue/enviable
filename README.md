@@ -14,9 +14,11 @@ application model. It works well with configuration environment loaders like
 [Dotenvy][dotenvy], [Nvir][nvir], or [Envious][envious] and provides robust
 value conversion like [jetenv][jetenv].
 
-Enviable 3.0 introduces a new interface, `Enviable.Codex`, separating value
-retrieval from conversion. The main new features in Codex:
+Enviable 3 adds an alternative interface, `Enviable.Codex`. It's not
+interoperable with `Enviable`, and only one should be used, not both in the
+same module. The main new features in Codex are:
 
+- value retrieval separate from conversion;
 - support for environment maps (returned from Dotenvy and Envious, or
   `System.get_env/0`) with `fetch_env_map/2`, `fetch_env_map!/2`, and
   `get_env_map/2,3`;
@@ -31,6 +33,43 @@ All Enviable.Codex value retrieval functions all return a struct implementing
 recommended.
 
 There are breaking changes described in the [CHANGELOG][changelog].
+
+Enviable 3.1 extends functionality to simplify three patterns seen in Phoenix
+runtime configuration templates.
+
+- `get_env(varname) || raise message` can be folded into either `fetch_env!`
+  with the `or_raise` option, or into any conversion function's `or_raise`
+  option.
+
+  ```elixir
+  fetch_env!("PORT", or_raise: ~S("PORT" is a required variable))
+  get_env("PORT") |> as_integer(or_raise: ~S("PORT" is a required variable))
+  ```
+
+  These will raise a runtime error with the message provided in `or_raise` if
+  the value is unset.
+
+- Boolean conversion can map the resolved boolean value to terms with `then`
+  and `else` options.
+
+  ```elixir
+  ipv6_if_enabled = get_env("ECTO_IPV6") |> as_boolean(then: [:inet6], else: [])
+  ipv6_if_enabled = get_env_as_boolean("ECTO_IPV6", then: [:inet6], else: [])
+  ```
+
+- Added `Enviable.Codex.env_set?/1` and `Enviable.Codex.env_unset?/1` because
+  `Enviable.Codex.get_env/1` returns an `Enviable.Value` struct which is
+  always truthy.
+
+  ```elixir
+  if get_env("PHX_SERVER") do
+    # always truthy
+  end
+
+  if env_set?("PHX_SERVER") do
+    # not always true
+  end
+  ```
 
 Elixir 1.17 or later is required.
 

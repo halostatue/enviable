@@ -1,13 +1,12 @@
 defmodule Enviable.Conversion.Schema.TypeSpec do
-  # Builds quoted typespecs for the NimbleOptions types used by Enviable.Conversion.Schema.
+  @moduledoc false
+
+  # Builds quoted typespecs for the NimbleOptions types used by
+  # Enviable.Conversion.Schema.
   #
   # NimbleOptions 1.1 renders `{:in, choices}` as `term()`, which loses the literal values
-  # that make option typespecs useful (`:lower | :mixed | :upper`). Every schema entry gets
-  # a `:type_spec` from here unless it provides its own.
-  #
-  # This is a separate module because Enviable.Conversion.Schema calls it while compiling.
-
-  @moduledoc false
+  # that make option typespecs useful (`:lower | :mixed | :upper`). Every schema entry
+  # gets a `:type_spec` from here unless it provides its own.
 
   @spec quoted(term()) :: Macro.t()
   def quoted(:any), do: quote(do: term())
