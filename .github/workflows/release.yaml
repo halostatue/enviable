@@ -32,6 +32,7 @@ jobs:
             builds.hex.pm:443
             coveralls.io:443
             github.com:443
+            hex.pm:443
             release-assets.githubusercontent.com:443
             repo.hex.pm:443
 
