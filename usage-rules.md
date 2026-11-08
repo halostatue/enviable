@@ -79,7 +79,10 @@ usage_rules: [:enviable, "enviable:codex", "enviable:conversions"]
    or `fetch_env!("PORT") |> as_integer()` (Codex) over manual parsing.
 3. **Choose the right presence variant** — `*!` raises on an unset variable,
    non-bang `fetch_*` returns `{:ok, value} | :error`, `get_*` returns a value
-   or default.
+   or default. Pass `or_raise: "message"` to raise a custom message on an unset
+   variable: on `*!` functions it replaces the default `System.EnvError`
+   message; on conversions (`as_*` / `get_env_as_*`) it raises instead of
+   returning `nil` or a `:default` (the two cannot both be provided).
 4. **Guard atom and module conversions** — use `safe_*` with `:allowed` for
    any value derived from untrusted input (see `enviable:credo`).
 
@@ -250,6 +253,9 @@ config :enviable, :paranoid, true               # wrap all Codex values in closu
    `side_effect: &put_env/1`; Codex reads the returned map directly.
 6. **Boolean defaults.** `get_env_as_boolean/2` / `as_boolean/2` return `false`
    when unset; only `"1"` and `"true"` (case-insensitive) are true by default.
+   Pass `then:`/`else:` (both required) to map the computed boolean to arbitrary
+   terms, e.g. `as_boolean(then: [:inet6], else: [])`; the return is then a
+   `term` rather than a strict `boolean()`.
 7. **Decimal dependency.** `*_as_decimal` / `as_decimal` require the `decimal`
    package.
 

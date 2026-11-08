@@ -1,31 +1,25 @@
 defmodule Enviable.Conversion.Schema do
-  # NimbleOptions schemas for every conversion layer.
+  @moduledoc false
+
+  # NimbleOptions schemas for every conversion type.
   #
-  # Each schema is defined here with its documentation, compiled once with
-  # NimbleOptions.new!/1, and used for three things:
+  # Each schema is defined here with its documentation and used for three things:
   #
   # - validation (Enviable.Conversion.Config.parse/2)
   # - generated `### Options` documentation (docs/2)
   # - generated option typespecs (option_typespec/1)
   #
-  # A schema describes the *shape* of each option only. Cross-key constraints (`downcase`
+  # A schema describes the *shape* of each option. Cross-key constraints (`downcase`
   # vs `upcase`, `truthy` vs `falsy`, `default` in `allowed`), value preparation (default
   # coercion, `allowed` lookup tables), and compile-time configuration defaults
   # (`:boolean_downcase`) belong to Enviable.Conversion.Config.
   #
-  # Option values never appear in error messages. `:default` values are fallbacks for
-  # environment variables and may be secrets, and a misspelled or misplaced option may
-  # carry a value meant for another option.
+  # Option values are suppressed from error messages as they may leak secret values.
   #
-  # `type_plain:` is also an Enviable key (removed before compilation): the plain-text type
-  # description used in error messages. Like `type_doc:`, it defaults to a description of
-  # `type:` and is overridden where the NimbleOptions type is broader than the documented
-  # type (`:module` options are `:atom` to NimbleOptions).
-  #
-  # Naming hazard: a spec's `default:` is the *option* default (`base: 10`). The conversion
-  # option `:default` is the *value* default for an unset variable.
-
-  @moduledoc false
+  # `type_plain:` is a pseudo-key for used in the schema definition to describe the plain
+  # text type description for error messages. Like `type_doc:`, it defaults to
+  # a description of `type:` and is overridden where the NimbleOptions type is broader
+  # than the documented type (`:module` options are `:atom` to NimbleOptions).
 
   alias Enviable.Conversion.Schema.TypeDoc
   alias Enviable.Conversion.Schema.TypeSpec
@@ -34,24 +28,26 @@ defmodule Enviable.Conversion.Schema do
 
   @log_levels [:emergency, :alert, :critical, :error, :warning, :warn, :notice, :info, :debug, :all, :none]
 
+  decimal_primitive = if has_decimal?, do: [:decimal], else: []
+
   @primitives [
-                :atom,
-                :boolean,
-                :charlist,
-                :duration,
-                :elixir,
-                :erlang,
-                :float,
-                :integer,
-                :json,
-                :log_level,
-                :module,
-                :pem,
-                :safe_atom,
-                :safe_module,
-                :string,
-                :timeout
-              ] ++ if(has_decimal?, do: [:decimal], else: [])
+    :atom,
+    :boolean,
+    :charlist,
+    :duration,
+    :elixir,
+    :erlang,
+    :float,
+    :integer,
+    :json,
+    :log_level,
+    :module,
+    :pem,
+    :safe_atom,
+    :safe_module,
+    :string,
+    :timeout | decimal_primitive
+  ]
 
   @encodings [:base16, :base32, :hex32, :base64, :url_base64, :list]
 
@@ -64,26 +60,29 @@ defmodule Enviable.Conversion.Schema do
   casefold = [type: {:or, [:boolean, {:in, [:default, :ascii, :greek, :turkic]}]}]
 
   casefold_doc = fn fun ->
-    "Case folding mode passed to `String.#{fun}/2`. `true` has the same meaning as `:default`."
+    """
+    Case folding mode passed to `String.#{fun}/2`. `true` has the same meaning as
+    `:default`.
+    """
   end
 
   atom_schema = [
     allowed: [
       type: {:list, :atom},
       doc: """
-      Permitted atoms, used as a lookup table if present. Any value not found results in
+      Permitted atoms used as a lookup table. Any value not found in this list results in
       an exception. Strongly recommended for untrusted input; see #{atom_exhaustion}.
       """
     ],
     default: [
       type: {:or, [:atom, :string]},
       doc: """
-      The atom to use if the variable is unset. If `:allowed` is present, the default must be
-      one of the permitted values.
+      The atom to use if the variable is unset. If `:allowed` is present, the default must
+      be one of the permitted values.
       """
     ],
-    downcase: casefold ++ [doc: casefold_doc.("downcase") <> " Mutually exclusive with `:upcase`."],
-    upcase: casefold ++ [doc: casefold_doc.("upcase") <> " Mutually exclusive with `:downcase`."]
+    downcase: [{:doc, casefold_doc.("downcase") <> " Mutually exclusive with `:upcase`."} | casefold],
+    upcase: [{:doc, casefold_doc.("upcase") <> " Mutually exclusive with `:downcase`."} | casefold]
   ]
 
   module_schema = [
@@ -93,8 +92,8 @@ defmodule Enviable.Conversion.Schema do
       type_plain: "a list of modules",
       type_spec: quote(do: [module()]),
       doc: """
-      Permitted modules, used as a lookup table if present. Any value not found results in
-      an exception. Strongly recommended for untrusted input; see #{atom_exhaustion}.
+      Permitted modules used as a lookup table. Any value not found in this list results
+      in an exception. Strongly recommended for untrusted input; see #{atom_exhaustion}.
       """
     ],
     default: [
@@ -103,8 +102,8 @@ defmodule Enviable.Conversion.Schema do
       type_plain: "module or string",
       type_spec: quote(do: module() | String.t()),
       doc: """
-      The module to use if the variable is unset. If `:allowed` is present, the default must
-      be one of the permitted values.
+      The module to use if the variable is unset. If `:allowed` is present, the default
+      must be one of the permitted values.
       """
     ]
   ]
@@ -132,14 +131,22 @@ defmodule Enviable.Conversion.Schema do
     type: :boolean,
     default: true,
     doc: """
-    Whether whitespace is ignored when decoding. Enviable's default is more permissive than
-    `Base.decode64/2` and `Base.url_decode64/2`, which reject whitespace.
+    Whether whitespace is ignored when decoding. Enviable's default is more permissive
+    than `Base.decode64/2` and `Base.url_decode64/2`, which reject whitespace.
     """
   ]
 
-  json_default_types =
-    [:string, :boolean, :integer, :float, nil, {:list, :any}, {:map, :string, :any}] ++
-      if(has_decimal?, do: [{:struct, Decimal}], else: [])
+  decimal_json = if has_decimal?, do: [{:struct, Decimal}], else: []
+
+  json_default_types = [
+    :string,
+    :boolean,
+    :integer,
+    :float,
+    nil,
+    {:list, :any},
+    {:map, :string, :any} | decimal_json
+  ]
 
   definitions = %{
     atom: atom_schema,
@@ -149,14 +156,18 @@ defmodule Enviable.Conversion.Schema do
     boolean: [
       default: [
         type: :boolean,
-        doc: "The value to use if the variable is unset. The default is `false`."
+        doc: """
+        The value to use if the variable is unset. The default is `false`.
+
+        Use `true` for a feature that must be turned off explicitly.
+        """
       ],
       downcase:
         casefold ++
           [
             doc: """
-            #{casefold_doc.("downcase")} The default is `:default`, which may be changed at
-            compile time through application configuration:
+            #{casefold_doc.("downcase")} The default is `:default`, which may be changed
+            at compile time through application configuration:
 
             ```elixir
             config :enviable, :boolean_downcase, true
@@ -168,15 +179,35 @@ defmodule Enviable.Conversion.Schema do
       truthy: [
         type: {:list, :string},
         doc: """
-        Values that convert to `true`; any other value is `false`. Mutually exclusive with
+        Values that convert to `true`; any other value is `false`. Cannot be provided with
         `:falsy`. If neither is provided, the default is `truthy: ~w[1 true]`.
         """
       ],
       falsy: [
         type: {:list, :string},
         doc: """
-        Values that convert to `false`; any other value is `true`. Mutually exclusive with
+        Values that convert to `false`; any other value is `true`. Cannot be provided with
         `:truthy`. Usually combined with `default: true`.
+        """
+      ],
+      then: [
+        type: :any,
+        type_doc: "`t:term/0`",
+        type_plain: "any term",
+        type_spec: quote(do: term()),
+        doc: """
+        The value returned when the computed boolean is `true`. Must be provided with
+        `:else`.
+        """
+      ],
+      else: [
+        type: :any,
+        type_doc: "`t:term/0`",
+        type_plain: "any term",
+        type_spec: quote(do: term()),
+        doc: """
+        The value returned when the computed boolean is `false`. Must be provided with
+        `:then`.
         """
       ]
     ],
@@ -202,8 +233,8 @@ defmodule Enviable.Conversion.Schema do
       default: [
         type: {:or, [:float, :integer, :string]},
         doc: """
-        The value to use if the variable is unset. Integers are converted to float; strings
-        must parse cleanly as float.
+        The value to use if the variable is unset. Integers are converted to float;
+        strings must parse cleanly as float.
         """
       ]
     ],
@@ -212,8 +243,8 @@ defmodule Enviable.Conversion.Schema do
       default: [
         type: {:or, [:integer, :string]},
         doc: """
-        The value to use if the variable is unset. Strings must be expressed in `:base` and
-        convert cleanly to an integer.
+        The value to use if the variable is unset. Strings must be expressed in `:base`
+        and convert cleanly to an integer.
         """
       ]
     ],
@@ -227,14 +258,16 @@ defmodule Enviable.Conversion.Schema do
       ],
       engine: [
         type: {:or, [:atom, {:fun, 1}, {:tuple, [:atom, :atom, {:list, :any}]}]},
-        type_doc: "`t:module/0`, a function of arity 1, or a `{module, function, args}` tuple",
+        type_doc: """
+        `t:module/0`, a function of arity 1, or a `{module, function, args}` tuple
+        """,
         type_plain: "module, a function of arity 1, or a {module, function, args} tuple",
         type_spec: quote(do: module() | (String.t() -> term()) | {module(), atom(), list()}),
         doc: """
         The JSON engine to use: a module that exports `decode/1`, an arity 1 function, or
         a `{module, function, args}` tuple (the value is passed as the first argument). If
-        the engine returns `{:ok, json}` or a JSON value, the conversion succeeds; any other
-        result is a failure.
+        the engine returns `{:ok, json}` or a JSON value, the conversion succeeds; any
+        other result is a failure.
 
         The default is selected from the `:enviable` application configuration option
         `:json_engine`. If this is unset, the default is the first available of:
@@ -245,7 +278,8 @@ defmodule Enviable.Conversion.Schema do
           [json_polyfill](https://hexdocs.pm/json_polyfill/readme.html) is installed
         - [Jason](https://hexdocs.pm/jason/readme.html)
 
-        This example uses [Thoas](https://hexdocs.pm/thoas/readme.html) as the JSON engine:
+        This example uses [Thoas](https://hexdocs.pm/thoas/readme.html) as the JSON
+        engine:
 
         ```elixir
         import Config
@@ -315,22 +349,29 @@ defmodule Enviable.Conversion.Schema do
         type: {:or, [:string, {:list, :any}]},
         type_spec: quote(do: String.t() | list()),
         doc: """
-        The value to use if the variable is unset. A string is split and converted as if it
-        were the value. A list of strings is converted element by element with the
+        The value to use if the variable is unset. A string is split and converted as if
+        it were the value. A list of strings is converted element by element with the
         remaining options. Any other list must contain values acceptable as `:default` for
         the element type (`:as`); each is prepared as that type's default.
         """
       ],
       delimiter: [
-        type: {:or, [:string, {:list, :string}, {:struct, Regex}, {:custom, __MODULE__, :__compiled_pattern__, []}]},
+        type:
+          {:or,
+           [
+             :string,
+             {:list, :string},
+             {:struct, Regex},
+             {:custom, __MODULE__, :__compiled_pattern__, []}
+           ]},
         default: ",",
         type_doc: "`t:String.pattern/0` or `t:Regex.t/0`",
         type_plain: "string pattern or regular expression",
         type_spec: quote(do: String.pattern() | Regex.t()),
         doc: """
-        The delimiter used to separate list entries: a string, a list of strings, a compiled
-        pattern from `:binary.compile_pattern/1`, or a regular expression, as accepted by
-        `String.split/3`.
+        The delimiter used to separate list entries: a string, a list of strings,
+        a compiled pattern from `:binary.compile_pattern/1`, or a regular expression, as
+        accepted by `String.split/3`.
         """
       ],
       parts: [
@@ -339,10 +380,19 @@ defmodule Enviable.Conversion.Schema do
       ],
       trim: [type: :boolean, doc: "Whether empty entries are omitted."],
       on: [
-        type: {:or, [{:in, [:all, :first, :all_but_first, :none, :all_names]}, {:list, {:or, [:string, :atom]}}]},
-        type_doc:
-          "one of `:all`, `:first`, `:all_but_first`, `:none`, `:all_names`, or a list of capture names (`t:String.t/0` or `t:atom/0`)",
-        type_plain: "one of :all, :first, :all_but_first, :none, :all_names, or a list of capture names",
+        type:
+          {:or,
+           [
+             {:in, [:all, :first, :all_but_first, :none, :all_names]},
+             {:list, {:or, [:string, :atom]}}
+           ]},
+        type_doc: """
+        one of `:all`, `:first`, `:all_but_first`, `:none`, `:all_names`, or a list of
+        capture names (`t:String.t/0` or `t:atom/0`)
+        """,
+        type_plain: """
+        one of :all, :first, :all_but_first, :none, :all_names, or a list of capture names\
+        """,
         doc: """
         Regular expression delimiters only. Which captures to split the string on, and in
         what order. The default is `:first`, which means captures inside the regular
@@ -382,6 +432,24 @@ defmodule Enviable.Conversion.Schema do
       definitions
     end
 
+  # `:or_raise` is a universal option on every conversion layer: when the variable is
+  # unset, an exception is raised with the provided message instead of returning `nil`,
+  # the type's default, or applying `:default`. Mutually exclusive with `:default` (checked
+  # in Enviable.Conversion.Config).
+  or_raise =
+    [
+      {:or_raise,
+       [
+         type: :string,
+         doc: """
+          A message used to raise an exception when the variable is unset, instead of
+            returning `nil` or the `:default`. Cannot be provided with `:default`.
+         """
+       ]}
+    ]
+
+  definitions = Map.new(definitions, fn {type, entries} -> {type, entries ++ or_raise} end)
+
   as_spec = fn
     :list ->
       [
@@ -410,17 +478,14 @@ defmodule Enviable.Conversion.Schema do
       ]
   end
 
-  # `:default` for `enc` and `{enc, t}` (`enc` is `{enc, :string}`). It is documentation
-  # only: Enviable.Conversion routes the default to the inner type, so it is not part of
-  # the encoding's schema.
   encoded_default = fn encoding ->
     [
       type: :any,
       type_doc: "a `:default` for the `:as` type",
       doc: """
       The value to use if the variable is unset. This is the *decoded* result, not an
-      encoded string: a value accepted as `:default` by the `:as` type (`:string`, if `:as`
-      is not provided). For example, `"30s"` is a valid default for
+      encoded string: a value accepted as `:default` by the `:as` type (`:string`, if
+      `:as` is not provided). For example, `"30s"` is a valid default for
       `{:#{encoding}, :timeout}`.
       """
     ]
@@ -449,12 +514,7 @@ defmodule Enviable.Conversion.Schema do
 
       spec =
         spec
-        |> Keyword.update!(
-          :doc,
-          &(&1
-            |> String.trim()
-            |> unwrap.())
-        )
+        |> Keyword.update!(:doc, &unwrap.(String.trim(&1)))
         |> Keyword.put_new(:type_doc, TypeDoc.describe(type, :markdown))
         |> Keyword.put_new(:type_plain, TypeDoc.describe(type, :plain))
         |> Keyword.put_new(:type_spec, TypeSpec.quoted(type))
@@ -485,28 +545,24 @@ defmodule Enviable.Conversion.Schema do
   # These functions are called only while compiling other modules (module attributes,
   # `@doc` interpolation, and `@spec`/`@type` unquoting), so they are never executed under
   # test coverage.
-  # coveralls-ignore-start
 
-  @doc "All supported primitive conversion types."
+  # All supported primitive conversion types.
   @spec primitives :: [atom()]
   def primitives, do: @primitives
 
-  @doc "All supported encoded conversion types."
+  # All supported encoded conversion types.
   @spec encodings :: [atom()]
   def encodings, do: @encodings
 
-  @doc "Primitive types that may not be used as list elements."
+  # Primitive types that may not be used as list elements.
   @spec unlisted :: [atom()]
   def unlisted, do: @unlisted
 
-  @doc """
-  Returns the `### Options` documentation for a single conversion layer.
-
-  ### Options
-
-  - `:except`: option keys to leave out of the documentation.
-  - `:as`: adds documentation for the wrapper `:as` option (`:list` or `:encoded`).
-  """
+  # Returns the `### Options` documentation for a single conversion layer.
+  #
+  # Options:
+  # - `:except`: option keys to leave out of the documentation.
+  # - `:as`: adds documentation for the wrapper `:as` option (`:list` or `:encoded`).
   @spec docs(atom(), keyword()) :: String.t()
   def docs(type, opts \\ []) do
     except = Keyword.get(opts, :except, [])
@@ -527,17 +583,14 @@ defmodule Enviable.Conversion.Schema do
     end
   end
 
-  @doc """
-  Returns the quoted option typespec for a single conversion layer: a union of
-  `{key, type}` tuples. Must be used with `unquote/1` in a typespec.
-
-  ### Options
-
-  - `:only`: option keys to include (all, if not provided).
-  - `:except`: option keys to leave out.
-  - `:as`: adds the wrapper `:as` option (`:list` or `:encoded`), the `:default` for
-    encoded conversions, and `{atom(), term()}` for options of the `:as` type.
-  """
+  # Returns the quoted option typespec for a single conversion layer: a union of
+  # `{key, type}` tuples. Must be used with `unquote/1` in a typespec.
+  #
+  # Options:
+  # - `:only`: option keys to include (all, if not provided).
+  # - `:except`: option keys to leave out.
+  # - `:as`: adds the wrapper `:as` option (`:list` or `:encoded`), the `:default` for
+  #   encoded conversions, and `{atom(), term()}` for options of the `:as` type.
   @spec option_typespec(atom(), keyword()) :: Macro.t()
   def option_typespec(type, opts \\ []) do
     except = Keyword.get(opts, :except, [])
@@ -563,27 +616,23 @@ defmodule Enviable.Conversion.Schema do
     TypeSpec.union(specs)
   end
 
-  # coveralls-ignore-stop
-
-  @doc "Returns the compiled schema for a single conversion layer."
+  # Returns the compiled schema for a single conversion layer.
   @spec schema(atom()) :: NimbleOptions.t()
   def schema(type), do: Map.fetch!(@schemas, type)
 
-  @doc "Returns the option keys accepted by a single conversion layer."
+  # Returns the option keys accepted by a single conversion layer.
   @spec keys(atom()) :: [atom()]
-  def keys(type),
-    do:
-      @documented
-      |> Map.fetch!(type)
-      |> Keyword.keys()
+  def keys(type) do
+    @documented
+    |> Map.fetch!(type)
+    |> Keyword.keys()
+  end
 
-  @doc """
-  Validates options for a single conversion layer. Unknown options are rejected. `opts`
-  must be a keyword list (Enviable.Conversion checks this before calling).
-
-  On failure, returns the failing option key and a reason that never includes option
-  values.
-  """
+  # Validates options for a single conversion layer. Unknown options are rejected. `opts`
+  # must be a keyword list (Enviable.Conversion checks this before calling).
+  #
+  # On failure, returns the failing option key and a reason that never includes option
+  # values.
   @spec validate(atom(), keyword()) :: {:ok, keyword()} | {:error, atom() | [atom()], String.t()}
   def validate(type, opts) do
     with :ok <- check_unknown(type, opts) do
@@ -611,19 +660,21 @@ defmodule Enviable.Conversion.Schema do
 
   @doc false
   @spec unknown_reason([atom()], [atom()]) :: String.t()
-  def unknown_reason(unknown, []), do: "#{unknown_noun(unknown)} #{format_keys(unknown)} (no options are supported)"
+  # Every conversion type has `:or_raise`. `known` shouldn't be empty, but safety first.
+  def unknown_reason(unknown, []) do
+    "#{unknown_noun(unknown)} #{format_keys(unknown)} (no options are supported)"
+  end
 
-  def unknown_reason(unknown, known),
-    do: "#{unknown_noun(unknown)} #{format_keys(unknown)} (supported: #{format_keys(known)})"
+  def unknown_reason(unknown, known) do
+    "#{unknown_noun(unknown)} #{format_keys(unknown)} (supported: #{format_keys(known)})"
+  end
 
   defp unknown_noun([_]), do: "unknown option"
   defp unknown_noun(_), do: "unknown options"
 
   defp format_keys(keys), do: Enum.map_join(keys, ", ", &"`#{inspect(&1)}`")
 
-  # NimbleOptions messages include the rejected value (`got: ...`) and, for `{:or, ...}`
-  # types, one line per alternative. Both are replaced: the reason names the expected
-  # types from the schema and never includes the value.
+  # Customize the messages from validation failure to hide explicit values.
   defp error_reason(type, %NimbleOptions.ValidationError{key: key, keys_path: keys_path}) do
     top = List.first(keys_path, key)
 

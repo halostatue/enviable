@@ -459,22 +459,20 @@ defmodule Enviable.Conversion do
   @spec convert_as(Value.t(), conversion, keyword) :: nil | term()
   @doc false
   def convert_as(%Value{} = value, type, options) do
-    layers = normalize_type!(type)
-
     if !Keyword.keyword?(options) do
       option_error!(value, type, nil, "options must be a keyword list")
     end
 
-    case layers do
-      {:list, inner} -> convert_list(value, type, inner, options)
-      {encoding, inner} -> convert_encoded(value, type, encoding, inner, options)
+    case normalize_type!(type) do
+      {:list, inner_type} -> convert_list(value, type, inner_type, options)
+      {encoding, inner_type} -> convert_encoded(value, type, encoding, inner_type, options)
       primitive -> convert_primitive(value, type, primitive, options)
     end
   end
 
-  # Normalizes a conversion to a primitive or an `{encoding, primitive}` pair, raising
-  # before any conversion if the conversion is not supported. A bare encoding is
-  # `{encoding, :string}`.
+  defp normalize_type!(type) when type in @primitives, do: type
+  defp normalize_type!(type) when type in @encodings, do: {type, :string}
+
   if :decimal not in Schema.primitives() do
     defp normalize_type!(:decimal), do: unsupported!(:decimal, "requires the optional `:decimal` dependency")
 
@@ -482,55 +480,39 @@ defmodule Enviable.Conversion do
       do: unsupported!({encoding, :decimal}, "requires the optional `:decimal` dependency")
   end
 
-  defp normalize_type!(type) when type in @primitives, do: type
-  defp normalize_type!(type) when type in @encodings, do: {type, :string}
+  defp normalize_type!({:list, inner_type}) when inner_type in @unlisted,
+    do: unsupported!({:list, inner_type}, "`#{inspect(inner_type)}` values cannot be list elements")
 
-  defp normalize_type!({:list, inner}) when inner in @unlisted,
-    do: unsupported!({:list, inner}, "`#{inspect(inner)}` values cannot be list elements")
+  defp normalize_type!({encoding, inner_type} = type) when encoding in @encodings and inner_type in @primitives,
+    do: type
 
-  defp normalize_type!({encoding, inner} = type) when encoding in @encodings and inner in @primitives, do: type
-
-  defp normalize_type!({encoding, inner} = type)
-       when encoding in @encodings and (inner in @encodings or is_tuple(inner)),
+  defp normalize_type!({encoding, inner_type} = type)
+       when encoding in @encodings and (inner_type in @encodings or is_tuple(inner_type)),
        do: unsupported!(type, "encoded conversions cannot be nested")
 
   defp normalize_type!(type), do: unsupported!(type, "unknown conversion type")
 
-  defp unsupported!(type, reason), do: raise(Enviable.UnsupportedConversionError, type: type, reason: reason)
+  defp unsupported!(type, reason) do
+    raise Enviable.UnsupportedConversionError, type: type, reason: reason
+  end
 
   defp convert_primitive(value, requested, type, options) do
-    config = parse!(value, requested, type, options)
-    convert_value(value, type, config)
+    options
+    |> parse!(value, requested, type)
+    |> convert_value(value, type)
   end
 
-  # A `:default` for an encoded conversion is a default for the decoded result, prepared
-  # by the inner type (`:string` for `enc`, or `t` for `{enc, t}`).
-  defp convert_encoded(value, requested, encoding, inner, options) do
-    {default, options} = pop_default(options)
-    {outer_opts, inner_opts} = split!(value, requested, encoding, inner, options)
-    encoding_config = parse!(value, requested, encoding, outer_opts)
-    inner_opts = if default == :none, do: inner_opts, else: [{:default, elem(default, 1)} | inner_opts]
-    inner_config = parse!(value, requested, inner, inner_opts)
-    decoded = convert_value(value, encoding, encoding_config)
-    convert_value(%{value | value: decoded}, inner, inner_config)
+  defp convert_encoded(value, requested, encoding, inner_type, options) do
+    {_default, outer_config, inner_config} = parse_compound_opts(value, requested, encoding, inner_type, options)
+
+    decoded = convert_value(outer_config, value, encoding)
+    convert_value(inner_config, %{value | value: decoded}, inner_type)
   end
 
-  defp convert_list(value, requested, inner, options) do
-    {default, options} = pop_default(options)
-    {list_opts, inner_opts} = split!(value, requested, :list, inner, options)
+  defp convert_list(value, requested, inner_type, options) do
+    {default, outer_config, inner_config} = parse_compound_opts(value, requested, :list, inner_type, options)
 
-    list_config =
-      parse!(
-        value,
-        requested,
-        :list,
-        if(default == :none, do: list_opts, else: [{:default, elem(default, 1)} | list_opts])
-      )
-
-    inner_config = parse!(value, requested, inner, inner_opts)
-
-    # A list default is checked now, but converted only if it is used.
-    default = list_default(value, requested, inner, inner_config, default)
+    default = list_default(value, requested, inner_type, inner_config, default)
 
     case {value, default} do
       {%Value{value: nil}, :none} ->
@@ -540,19 +522,54 @@ defmodule Enviable.Conversion do
         list
 
       {%Value{value: nil}, {:string, string}} ->
-        split_list(%{value | value: string, source: :default}, inner, list_config, inner_config)
+        split_list(%{value | value: string, source: :default}, inner_type, outer_config, inner_config)
 
       {%Value{value: nil}, {:strings, list}} ->
-        convert_elements(%{value | source: :default}, list, inner, inner_config)
+        convert_elements(%{value | source: :default}, list, inner_type, inner_config)
 
       {value, _default} ->
-        split_list(value, inner, list_config, inner_config)
+        split_list(value, inner_type, outer_config, inner_config)
     end
   end
 
-  defp pop_default(options) do
-    case Keyword.fetch(options, :default) do
-      {:ok, default} -> {{:some, default}, Keyword.delete(options, :default)}
+  defp parse_compound_opts(value, requested, encoding, inner_type, options) do
+    {default, options} = split_option(options, :default)
+    {or_raise, options} = split_option(options, :or_raise)
+
+    check_or_raise!(value, requested, default, or_raise)
+    {outer_opts, inner_opts} = split!(value, requested, encoding, inner_type, options)
+
+    # List conversions keep the default; encoded conversions push the default to the inner
+    # type.
+    {outer_opts, inner_opts} =
+      if encoding == :list do
+        {put_default_opt(outer_opts, default), inner_opts}
+      else
+        {outer_opts, put_default_opt(inner_opts, default)}
+      end
+
+    outer_config = parse!(outer_opts, value, requested, encoding)
+    inner_config = parse!(inner_opts, value, requested, inner_type)
+
+    {default, outer_config, inner_config}
+  end
+
+  defp put_default_opt(opts, :none), do: opts
+  defp put_default_opt(opts, {:some, value}), do: [{:default, value} | opts]
+
+  defp check_or_raise!(value, requested, {:some, _}, {:some, _}) do
+    option_error!(value, requested, [:default, :or_raise], "`:default` and `:or_raise` cannot both be provided")
+  end
+
+  defp check_or_raise!(%Value{value: nil}, _requested, _default, {:some, message}) do
+    raise message
+  end
+
+  defp check_or_raise!(_value, _requested, _default, _or_raise), do: :ok
+
+  defp split_option(options, key) do
+    case Keyword.fetch(options, key) do
+      {:ok, value} -> {{:some, value}, Keyword.delete(options, key)}
       :error -> {:none, options}
     end
   end
@@ -565,7 +582,7 @@ defmodule Enviable.Conversion do
   defp list_default(_value, _requested, _inner, _inner_config, {:some, default}) when is_binary(default),
     do: {:string, default}
 
-  defp list_default(value, requested, inner, inner_config, {:some, default}) do
+  defp list_default(value, requested, inner_type, inner_config, {:some, default}) do
     cond do
       Enum.all?(default, &is_binary/1) ->
         {:strings, default}
@@ -578,15 +595,15 @@ defmodule Enviable.Conversion do
           default
           |> Enum.with_index()
           |> Enum.map(fn {item, index} ->
-            prepare_default_element!(value, requested, inner, inner_config, item, index)
+            prepare_default_element!(value, requested, inner_type, inner_config, item, index)
           end)
 
         {:final, prepared}
     end
   end
 
-  defp prepare_default_element!(value, requested, inner, inner_config, item, index) do
-    case Config.prepare_default(inner, item, inner_config) do
+  defp prepare_default_element!(value, requested, inner_type, inner_config, item, index) do
+    case Config.prepare_default(inner_type, item, inner_config) do
       {:ok, prepared} ->
         prepared
 
@@ -595,28 +612,29 @@ defmodule Enviable.Conversion do
     end
   end
 
-  defp split_list(%Value{} = value, inner, list_config, inner_config) do
+  defp split_list(%Value{} = value, inner_type, list_config, inner_config) do
     elements =
       value
       |> Value.__unwrap__()
       |> String.split(list_config.delimiter, list_config.split_opts)
 
-    convert_elements(value, elements, inner, inner_config)
+    convert_elements(value, elements, inner_type, inner_config)
   end
 
-  defp convert_elements(value, elements, inner, inner_config) do
+  defp convert_elements(value, elements, inner_type, inner_config) do
     elements
     |> Enum.with_index()
     |> Enum.map(fn {item, index} ->
-      convert_value(%{value | value: item, index: index}, inner, inner_config)
+      convert_value(inner_config, %{value | value: item, index: index}, inner_type)
     end)
   end
 
-  # Routes options to the outer (encoding) and inner (primitive) layers. The layers' keys
-  # are disjoint; anything else is unknown.
-  defp split!(value, requested, outer, inner, options) do
-    outer_keys = Schema.keys(outer)
-    inner_keys = Schema.keys(inner) -- [:default]
+  # Routes options to the outer (encoding) and inner_type (primitive) layers. `:default` and
+  # `:or_raise` are popped before this and handled at the encoded/list level, so the
+  # remaining layers' keys are disjoint; anything else is unknown.
+  defp split!(value, requested, outer, inner_type, options) do
+    outer_keys = Schema.keys(outer) -- [:or_raise]
+    inner_keys = Schema.keys(inner_type) -- [:default, :or_raise]
 
     {outer_opts, rest} = Keyword.split(options, outer_keys)
     {inner_opts, unknown} = Keyword.split(rest, inner_keys)
@@ -629,11 +647,12 @@ defmodule Enviable.Conversion do
         |> Keyword.keys()
         |> Enum.uniq()
 
-      option_error!(value, requested, unknown_keys, Schema.unknown_reason(unknown_keys, outer_keys ++ inner_keys))
+      supported = Enum.uniq(outer_keys ++ inner_keys ++ [:or_raise])
+      option_error!(value, requested, unknown_keys, Schema.unknown_reason(unknown_keys, supported))
     end
   end
 
-  defp parse!(value, requested, type, options) do
+  defp parse!(options, value, requested, type) do
     case Config.parse(type, options) do
       {:ok, config} -> config
       {:error, key, reason} -> option_error!(value, requested, key, reason)
@@ -650,19 +669,32 @@ defmodule Enviable.Conversion do
       reason: reason
   end
 
-  defp convert_value(%Value{value: nil}, _type, config), do: Map.get(config, :default)
+  defp convert_value(config, %Value{value: nil}, type) do
+    case config do
+      %{or_raise: message} -> raise message
+      _ -> apply_boolean_map(Map.get(config, :default), type, config)
+    end
+  end
 
-  defp convert_value(%Value{} = value, type, config) do
+  defp convert_value(config, %Value{} = value, type) do
     raw = Value.__unwrap__(value)
 
     case convert_to(type, casefold(raw, config[:casefold]), config) do
       {:ok, result} ->
-        result
+        apply_boolean_map(result, type, config)
 
       :error ->
         raise Enviable.ConversionError, env: value.name, type: type, source: value.source, index: value.index
     end
   end
+
+  # Boolean `:then`/`:else` mapping is applied after the boolean is resolved (converted
+  # value or default). Non-boolean types and booleans without a `:map` are unchanged.
+  defp apply_boolean_map(result, :boolean, %{map: {then_value, else_value}}) do
+    if result, do: then_value, else: else_value
+  end
+
+  defp apply_boolean_map(result, _type, _config), do: result
 
   defguardp is_json(value)
             when is_binary(value) or is_boolean(value) or is_list(value) or is_map(value) or is_nil(value) or
@@ -762,10 +794,14 @@ defmodule Enviable.Conversion do
 
   defp convert_to(:safe_atom, value, _config) do
     {:ok, String.to_existing_atom(value)}
+  rescue
+    ArgumentError -> :error
   end
 
   defp convert_to(:safe_module, value, _config) do
     {:ok, Module.safe_concat([value])}
+  rescue
+    ArgumentError -> :error
   end
 
   defp convert_to(:erlang, value, _config) do

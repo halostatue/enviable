@@ -58,6 +58,20 @@ fetch_env_as!("PORT", :integer)       # raises on error
   `{:ok, value}` / `:error` and build conditional configuration.
 - **`get_env_as_TYPE/2`** — optional, with a sensible default.
 
+### Custom messages on an unset variable
+
+The `fetch_env!/2` and `fetch_env_as_TYPE!/2` functions accept
+`or_raise: "message"`; when the variable is unset, the message replaces the
+default `System.EnvError` text.
+
+```elixir
+fetch_env!("SECRET_KEY", or_raise: "SECRET_KEY must be set")
+fetch_env_as_integer!("PORT", or_raise: "PORT must be set")
+```
+
+The `get_env_as_TYPE/2` conversions also accept `or_raise:` to raise on an
+unset variable instead of returning a default (see `enviable:conversions`).
+
 ## Setting and deleting
 
 ```elixir

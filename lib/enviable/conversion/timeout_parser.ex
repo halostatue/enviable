@@ -3,7 +3,7 @@ defmodule Enviable.Conversion.TimeoutParser do
 
   import NimbleParsec
 
-  # Parse integers with optional underscored in them.
+  # Parse integers with optional underscores in them.
   integer_with_underscores =
     [?0..?9]
     |> ascii_char()
@@ -44,7 +44,6 @@ defmodule Enviable.Conversion.TimeoutParser do
     |> reduce({:build_timeout_component, []})
 
   # Parse multiple timeout components separated by spaces
-
   timeout_components =
     repeat(
       timeout_component,

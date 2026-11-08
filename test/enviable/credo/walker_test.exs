@@ -1,5 +1,4 @@
 defmodule Enviable.Credo.WalkerTest do
-  # Scope, import filter, capture, and prefix handling shared by the Enviable checks.
   use Credo.Test.Case
 
   alias Enviable.Credo.UnsafeAtom

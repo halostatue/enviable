@@ -1,19 +1,9 @@
 defmodule Enviable.ConversionTest do
-  use ExUnit.Case
+  use Enviable.ConversionCase
 
   alias Elixir.Enviable.MakeItUp
   alias Enviable.Conversion
   alias Enviable.Value
-
-  paths = Path.wildcard("test/fixtures/*.pem")
-  @paths_hash :erlang.md5(paths)
-
-  for path <- paths, do: @external_resource(path)
-
-  @pems Map.new(paths, &{Path.basename(&1, ".pem"), &1})
-  defp pems(name), do: @pems[name]
-
-  def __mix_recompile__?, do: :erlang.md5(Path.wildcard("test/fixtures/*.pem")) != @paths_hash
 
   doctest Enviable.Conversion
 
@@ -95,15 +85,40 @@ defmodule Enviable.ConversionTest do
     end
 
     test "invalid allowed" do
-      assert_config_error("invalid `:allowed` value (expected a list of atom)", "on", :atom, allowed: 3)
-      assert_config_error("`:allowed` cannot be empty", "on", :atom, allowed: [])
+      assert_config_error(
+        "invalid `:allowed` value (expected a list of atom)",
+        "on",
+        :atom,
+        allowed: 3
+      )
+
+      assert_config_error(
+        "`:allowed` cannot be empty",
+        "on",
+        :atom,
+        allowed: []
+      )
     end
 
     test "invalid option values are not included in the message" do
-      error = assert_raise Enviable.OptionError, fn -> convert_as("on", :atom, allowed: "sekret") end
+      error =
+        assert_config_error(
+          "invalid `:allowed` value (expected a list of atom)",
+          "on",
+          :atom,
+          allowed: "sekret"
+        )
+
       refute Exception.message(error) =~ "sekret"
 
-      error = assert_raise Enviable.OptionError, fn -> convert_as("on", :atom, allowed: ["sekret"]) end
+      error =
+        assert_config_error(
+          "invalid `:allowed` value (expected a list of atom)",
+          "on",
+          :atom,
+          allowed: ["sekret"]
+        )
+
       refute Exception.message(error) =~ "sekret"
     end
 
@@ -127,7 +142,7 @@ defmodule Enviable.ConversionTest do
 
     test "both upcase and downcase provided" do
       assert_config_error(
-        "`:downcase` and `:upcase` are mutually exclusive",
+        "`:downcase` and `:upcase` cannot both be provided",
         "on",
         :atom,
         upcase: true,
@@ -150,9 +165,7 @@ defmodule Enviable.ConversionTest do
     end
 
     test "value atom does not already exist" do
-      assert_raise ArgumentError, ~r/not an already existing atom/, fn ->
-        convert_as("DDEEFFAAUULLTT", :safe_atom)
-      end
+      assert_conversion_error("DDEEFFAAUULLTT", :safe_atom)
     end
 
     test "value with downcase" do
@@ -196,12 +209,27 @@ defmodule Enviable.ConversionTest do
     end
 
     test "value not in allowed" do
-      assert_conversion_error("DDEEFFAAUULLTT", :safe_atom, allowed: ~w[on off]a)
+      assert_conversion_error(
+        "DDEEFFAAUULLTT",
+        :safe_atom,
+        allowed: ~w[on off]a
+      )
     end
 
     test "invalid allowed" do
-      assert_config_error("invalid `:allowed` value (expected a list of atom)", "on", :safe_atom, allowed: 3)
-      assert_config_error("`:allowed` cannot be empty", "on", :safe_atom, allowed: [])
+      assert_config_error(
+        "invalid `:allowed` value (expected a list of atom)",
+        "on",
+        :safe_atom,
+        allowed: 3
+      )
+
+      assert_config_error(
+        "`:allowed` cannot be empty",
+        "on",
+        :safe_atom,
+        allowed: []
+      )
     end
   end
 
@@ -233,7 +261,7 @@ defmodule Enviable.ConversionTest do
 
     test "both falsy and truthy provided" do
       assert_config_error(
-        "`:truthy` and `:falsy` are mutually exclusive",
+        "`:truthy` and `:falsy` cannot both be provided",
         "1",
         :boolean,
         truthy: ~w[1 true],
@@ -265,11 +293,21 @@ defmodule Enviable.ConversionTest do
     end
 
     test "invalid base" do
-      assert_config_error("invalid `:base` value (expected an integer in 2..36)", "1", :integer, base: 37)
+      assert_config_error(
+        "invalid `:base` value (expected an integer in 2..36)",
+        "1",
+        :integer,
+        base: 37
+      )
     end
 
     test "string base" do
-      assert_config_error(~S|invalid `:base` value (expected an integer in 2..36)|, "1", :integer, base: "2")
+      assert_config_error(
+        "invalid `:base` value (expected an integer in 2..36)",
+        "1",
+        :integer,
+        base: "2"
+      )
     end
 
     test "value not in base" do
@@ -277,11 +315,22 @@ defmodule Enviable.ConversionTest do
     end
 
     test "default string not in base" do
-      assert_config_error("`:default` is not a valid base 8 integer", "1", :integer, base: 8, default: "8")
+      assert_config_error(
+        "`:default` is not a valid base 8 integer",
+        "1",
+        :integer,
+        base: 8,
+        default: "8"
+      )
     end
 
     test "non-integer default" do
-      assert_config_error("invalid `:default` value (expected integer or string)", "1", :integer, default: 3.5)
+      assert_config_error(
+        "invalid `:default` value (expected integer or string)",
+        "1",
+        :integer,
+        default: 3.5
+      )
     end
   end
 
@@ -296,7 +345,12 @@ defmodule Enviable.ConversionTest do
     end
 
     test "invalid default" do
-      assert_config_error("invalid `:default` value (expected string or charlist)", nil, :charlist, default: 1)
+      assert_config_error(
+        "invalid `:default` value (expected string or charlist)",
+        nil,
+        :charlist,
+        default: 1
+      )
     end
 
     test "valid value" do
@@ -333,8 +387,19 @@ defmodule Enviable.ConversionTest do
     end
 
     test "non-float default" do
-      assert_config_error("invalid `:default` value (expected float, integer, or string)", "1", :float, default: :atom)
-      assert_config_error("`:default` is not a valid float", "1", :float, default: "3X")
+      assert_config_error(
+        "invalid `:default` value (expected float, integer, or string)",
+        "1",
+        :float,
+        default: :atom
+      )
+
+      assert_config_error(
+        "`:default` is not a valid float",
+        "1",
+        :float,
+        default: "3X"
+      )
     end
   end
 
@@ -525,9 +590,7 @@ defmodule Enviable.ConversionTest do
     end
 
     test "value module does not already exist" do
-      assert_raise ArgumentError, ~r/not an already existing atom/, fn ->
-        convert_as("Enviable.DoesNotExist", :safe_module)
-      end
+      assert_conversion_error("Enviable.DoesNotExist", :safe_module)
     end
 
     test "value with allowed" do
@@ -574,7 +637,7 @@ defmodule Enviable.ConversionTest do
 
   describe "conversion: pem" do
     setup do
-      {:ok, key_pem: File.read!(pems("example.org-key")), cert_pem: File.read!(pems("example.org"))}
+      {:ok, key_pem: load_pem!("example.org-key"), cert_pem: load_pem!("example.org")}
     end
 
     test "value nil" do
@@ -643,12 +706,11 @@ defmodule Enviable.ConversionTest do
 
     test "value correct term" do
       assert 1..3//2 == convert_as("1..3//2", :elixir)
+      assert 1..3//-2 == convert_as("1..3//-2", :elixir)
     end
 
     test "value incorrect syntax (1..3//0)" do
-      assert_raise ArgumentError, fn ->
-        convert_as("1..3//0", :elixir)
-      end
+      assert_raise ArgumentError, fn -> convert_as("1..3//0", :elixir) end
     end
 
     test "value incorrect syntax (\"a)" do
@@ -777,7 +839,7 @@ defmodule Enviable.ConversionTest do
 
   describe "conversion: base64" do
     setup do
-      data = File.read!(pems("example.org"))
+      data = load_pem!("example.org")
       {:ok, data: data, base64: Base.encode64(data)}
     end
 
@@ -1016,7 +1078,7 @@ defmodule Enviable.ConversionTest do
 
   describe "conversion: url_base64" do
     setup do
-      data = File.read!(pems("example.org"))
+      data = load_pem!("example.org")
       {:ok, data: data, url_base64: Base.encode64(data)}
     end
 
@@ -1085,17 +1147,13 @@ defmodule Enviable.ConversionTest do
   describe "conversion types" do
     test "nested encodings are unsupported" do
       for type <- [{:base64, :list}, {:list, :base16}, {:base16, {:list, :integer}}] do
-        assert_raise Enviable.UnsupportedConversionError, ~r/encoded conversions cannot be nested/, fn ->
-          convert_as("1", type)
-        end
+        assert_unsupported_conversion_error("encoded conversions cannot be nested", "1", type)
       end
     end
 
     test "some primitives cannot be list elements" do
       for type <- [:json, :elixir, :erlang, :pem] do
-        assert_raise Enviable.UnsupportedConversionError, ~r/cannot be list elements/, fn ->
-          convert_as("1", {:list, type})
-        end
+        assert_unsupported_conversion_error("`#{inspect(type)}` values cannot be list elements", "1", {:list, type})
       end
     end
 
@@ -1104,17 +1162,11 @@ defmodule Enviable.ConversionTest do
     end
 
     test "unknown conversion types are unsupported" do
-      assert_raise Enviable.UnsupportedConversionError, ~r/unknown conversion type/, fn ->
-        convert_as("1", :bogus)
-      end
-
-      assert_raise Enviable.UnsupportedConversionError, ~r/unknown conversion type/, fn ->
-        convert_as("1", {:list, :bogus})
-      end
+      assert_unsupported_conversion_error("unknown conversion type", 1, t(:bogus))
     end
 
     test "unsupported types raise before conversion, even for unset values" do
-      assert_raise Enviable.UnsupportedConversionError, fn -> convert_as(nil, {:list, :json}) end
+      assert_unsupported_conversion_error("`:json` values cannot be list elements", nil, {:list, :json})
     end
   end
 
@@ -1158,12 +1210,14 @@ defmodule Enviable.ConversionTest do
 
   describe "option validation" do
     test "unknown options are rejected" do
-      assert_config_error("unknown option `:bsae` (supported: `:base`, `:default`)", "1", :integer, bsae: 16)
+      assert_config_error("unknown option `:bsae` (supported: `:base`, `:default`, `:or_raise`)", "1", :integer,
+        bsae: 16
+      )
     end
 
     test "multiple unknown options are listed together" do
       assert_config_error(
-        "unknown options `:bsae`, `:dfault` (supported: `:base`, `:default`)",
+        "unknown options `:bsae`, `:dfault` (supported: `:base`, `:default`, `:or_raise`)",
         "1",
         :integer,
         bsae: 16,
@@ -1172,7 +1226,7 @@ defmodule Enviable.ConversionTest do
     end
 
     test "options are rejected for conversions without options" do
-      assert_config_error("unknown option `:default` (no options are supported)", "1", :elixir, default: 1)
+      assert_config_error("unknown option `:default` (supported: `:or_raise`)", "1", :elixir, default: 1)
     end
 
     test "options must be a keyword list" do
@@ -1185,40 +1239,142 @@ defmodule Enviable.ConversionTest do
     end
 
     test "composite option errors name the requested type" do
-      assert_raise Enviable.OptionError,
-                   ~S|could not convert environment variable "VARNAME" to type {:list, :integer}: | <>
-                     "invalid `:base` value (expected an integer in 2..36)",
-                   fn -> convert_as("1", {:list, :integer}, base: 40) end
+      assert_config_error("invalid `:base` value (expected an integer in 2..36)", "1", {:list, :integer}, base: 40)
     end
 
     test "composite unknown options list both layers" do
-      assert_raise Enviable.OptionError, ~r/unknown option `:padding` \(supported: `:case`, `:base`\)/, fn ->
-        convert_as("ff", {:base16, :integer}, padding: true)
-      end
+      assert_config_error(
+        "unknown option `:padding` \(supported: `:case`, `:base`, `:or_raise`\)",
+        "ff",
+        {:base16, :integer},
+        padding: true
+      )
     end
 
     test "options for the wrong layer are rejected" do
-      assert_raise Enviable.OptionError, ~r/unknown option `:base`/, fn ->
-        convert_as("ff", {:base16, :atom}, base: 16)
-      end
+      assert_config_error(
+        "unknown option `:base` (supported: `:case`, `:allowed`, `:downcase`, `:upcase`, `:or_raise`)",
+        "ff",
+        {:base16, :atom},
+        base: 16
+      )
     end
 
     test "default values are never included in messages" do
-      for {type, default} <- [integer: "secret", float: "secret", decimal: "secret", timeout: "secret"] do
-        error = assert_raise Enviable.OptionError, fn -> convert_as(nil, type, default: default) end
+      for {type, default, message} <- [
+            {:integer, "secret", "`:default` is not a valid base 10 integer"},
+            {:float, "secret", "`:default` is not a valid float"},
+            {:decimal, "secret", "`:default` is not a valid decimal"},
+            {:timeout, "secret", "`:default` is not a valid timeout"}
+          ] do
+        error =
+          assert_config_error(message, nil, type, default: default)
+
         refute Exception.message(error) =~ "secret"
       end
 
-      error = assert_raise Enviable.OptionError, fn -> convert_as(nil, :integer, default: {:secret}) end
+      error =
+        assert_config_error("invalid `:default` value (expected integer or string)", nil, :integer, default: {:secret})
+
       refute Exception.message(error) =~ "secret"
     end
 
     test "option errors carry the failing key" do
-      error = assert_raise Enviable.OptionError, fn -> convert_as("1", :boolean, truthy: ["1"], falsy: ["0"]) end
+      error =
+        assert_config_error("`:truthy` and `:falsy` cannot both be provided", "1", :boolean,
+          truthy: ["1"],
+          falsy: ["0"]
+        )
+
       assert error.key == [:truthy, :falsy]
 
-      error = assert_raise Enviable.OptionError, fn -> convert_as("1", :integer, bsae: 16) end
+      error =
+        assert_config_error("unknown option `:bsae` (supported: `:base`, `:default`, `:or_raise`)", "1", :integer,
+          bsae: 16
+        )
+
       assert error.key == [:bsae]
+    end
+  end
+
+  describe "or_raise" do
+    test "raises with the provided message when the value is unset" do
+      assert_raise RuntimeError, "PORT must be set", fn ->
+        convert_as(nil, :integer, or_raise: "PORT must be set")
+      end
+    end
+
+    test "is ignored when the value is set" do
+      assert 42 == convert_as("42", :integer, or_raise: "PORT must be set")
+    end
+
+    test "applies to every primitive type" do
+      for type <- [:integer, :float, :string, :atom, :boolean, :charlist] do
+        assert_raise RuntimeError, "unset", fn ->
+          convert_as(nil, type, or_raise: "unset")
+        end
+      end
+    end
+
+    test "raises for unset encoded conversions" do
+      assert_raise RuntimeError, "need base64", fn ->
+        convert_as(nil, {:base64, :integer}, or_raise: "need base64")
+      end
+    end
+
+    test "raises for unset list conversions" do
+      assert_raise RuntimeError, "need list", fn ->
+        convert_as(nil, {:list, :integer}, or_raise: "need list")
+      end
+    end
+
+    test "is mutually exclusive with :default" do
+      assert_config_error(
+        "`:default` and `:or_raise` cannot both be provided",
+        nil,
+        :integer,
+        default: 1,
+        or_raise: "no"
+      )
+    end
+
+    test "is mutually exclusive with :default for encoded conversions" do
+      assert_config_error(
+        "`:default` and `:or_raise` cannot both be provided",
+        nil,
+        {:base64, :integer},
+        default: 1,
+        or_raise: "no"
+      )
+    end
+  end
+
+  describe "boolean then/else" do
+    test "maps a true value to :then" do
+      assert [:inet6] == convert_as("true", :boolean, then: [:inet6], else: [])
+    end
+
+    test "maps a false value to :else" do
+      assert [] == convert_as("false", :boolean, then: [:inet6], else: [])
+    end
+
+    test "maps an unset value through the resolved default" do
+      assert [] == convert_as(nil, :boolean, then: [:inet6], else: [])
+      assert [:inet6] == convert_as(nil, :boolean, default: true, then: [:inet6], else: [])
+    end
+
+    test "honors :truthy and :falsy before mapping" do
+      assert :yes == convert_as("oui", :boolean, truthy: ["oui"], then: :yes, else: :no)
+      assert :no == convert_as("non", :boolean, truthy: ["oui"], then: :yes, else: :no)
+    end
+
+    test "requires both :then and :else" do
+      assert_config_error("`:then` and `:else` must be provided together", "true", :boolean, then: :yes)
+      assert_config_error("`:then` and `:else` must be provided together", "true", :boolean, else: :no)
+    end
+
+    test "maps list-element booleans" do
+      assert [:on, :off, :on] == convert_as("1,0,1", {:list, :boolean}, then: :on, else: :off)
     end
   end
 
@@ -1254,8 +1410,11 @@ defmodule Enviable.ConversionTest do
     end
 
     test "{enc, t} rejects :default when t has no defaults" do
-      assert_config_error("unknown option `:default` (no options are supported)", nil, {:base64, :elixir}, default: 1)
-      assert_config_error("unknown option `:default` (supported: `:filter`)", nil, {:base64, :pem}, default: "x")
+      assert_config_error("unknown option `:default` (supported: `:or_raise`)", nil, {:base64, :elixir}, default: 1)
+
+      assert_config_error("unknown option `:default` (supported: `:filter`, `:or_raise`)", nil, {:base64, :pem},
+        default: "x"
+      )
     end
 
     test "encoded defaults are not used when the value is set" do
@@ -1299,15 +1458,13 @@ defmodule Enviable.ConversionTest do
     end
 
     test "list defaults are checked when the value is set" do
-      assert_raise Enviable.OptionError, ~r/must contain only strings or no strings/, fn ->
-        convert_as("7", {:list, :integer}, default: [1, "2"])
-      end
+      assert_config_error("a list `:default` must contain only strings or no strings", "7", {:list, :integer},
+        default: [1, "2"]
+      )
 
       assert_raise Enviable.OptionError,
-                   ~S|could not convert environment variable "VARNAME" default[1] to type {:list, :integer}: invalid `:default` value (expected integer or string)|,
-                   fn ->
-                     convert_as("7", {:list, :integer}, default: [1, 2.5])
-                   end
+                   "could not convert environment variable \"VARNAME\" default[1] to type {:list, :integer}: invalid `:default` value (expected integer or string)",
+                   fn -> convert_as("7", {:list, :integer}, default: [1, 2.5]) end
     end
 
     test "{:list, :string} is the same as :list" do
@@ -1336,8 +1493,11 @@ defmodule Enviable.ConversionTest do
     end
 
     test "value element conversion failures name the element" do
-      error = assert_raise Enviable.ConversionError, fn -> convert_as("1,x", {:list, :integer}) end
-      assert Exception.message(error) == ~S|could not convert environment variable "VARNAME[1]" to type integer|
+      error =
+        assert_raise Enviable.ConversionError,
+                     ~S(could not convert environment variable "VARNAME[1]" to type integer),
+                     fn -> convert_as("1,x", {:list, :integer}) end
+
       assert error.index == 1
       assert error.source == :env
     end
@@ -1349,42 +1509,11 @@ defmodule Enviable.ConversionTest do
 
   describe "error labels" do
     test "map-sourced values" do
-      error =
-        assert_raise Enviable.ConversionError, fn ->
-          Conversion.convert_as(%Value{name: "PORT", value: "x", source: :map}, :integer, [])
-        end
-
-      assert Exception.message(error) == ~S|could not convert environment map variable "PORT" to type integer|
+      assert_raise Enviable.ConversionError,
+                   ~S(could not convert environment map variable "PORT" to type integer),
+                   fn ->
+                     Conversion.convert_as(%Value{name: "PORT", value: "x", source: :map}, :integer, [])
+                   end
     end
   end
-
-  defp assert_config_error(reason, value, type, options) do
-    assert_raise Enviable.OptionError, config_error(type, reason), fn ->
-      convert_as(value, type, options)
-    end
-  end
-
-  defp assert_conversion_error(value, type, options \\ []) do
-    assert_raise Enviable.ConversionError, conversion_error(type), fn ->
-      convert_as(value, type, options)
-    end
-  end
-
-  defp convert_as(value, type, options \\ []) do
-    Conversion.convert_as(%Value{value: value, name: "VARNAME"}, type, options)
-  end
-
-  defp config_error(type, reason),
-    do: "could not convert environment variable \"VARNAME\" to type #{Enviable.Errors.format_type(type)}: #{reason}"
-
-  defp conversion_error(type), do: "could not convert environment variable \"VARNAME\" to type #{type}"
-
-  defp split_lines(data) do
-    data
-    |> String.codepoints()
-    |> Enum.chunk_every(80)
-    |> Enum.map_join("\n", &Enum.join/1)
-  end
-
-  defp trim_padding(data), do: String.trim_trailing(data, "=")
 end

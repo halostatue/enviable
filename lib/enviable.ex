@@ -1,9 +1,12 @@
 defmodule Enviable do
   @moduledoc """
-  Enviable is a small collection of functions to improve Elixir project configuration via
+  Enviable is a collection of functions to improve Elixir project configuration via
   environment variables as proposed under the [12-factor][12f] application model. It works
   well with configuration environment loaders like [Dotenvy][Dotenvy] or [Nvir][nvir] and
   provides robust value conversion like [jetenv][jetenv].
+
+  Enviable and `Enviable.Codex` are alternative interfaces for the same purpose. They are
+  not interoperable. Use one or the other, not both in the same module.
 
   ### Usage
 
@@ -282,7 +285,8 @@ defmodule Enviable do
 
   #{Schema.docs(:atom)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` value.
+  The `default` may be passed _either_ as a `t:atom/0` value, _or_ in options as
+  `default: value` — not both.
   """
 
   @doc """
@@ -384,7 +388,8 @@ defmodule Enviable do
 
   #{Schema.docs(:boolean)}
 
-  A shorthand value for the `default` option may be provided as a `t:boolean/0` value.
+  The `default` may be passed _either_ as a `t:boolean/0` value, _or_ in options as
+  `default: value` — not both.
 
   ### Examples
 
@@ -429,7 +434,13 @@ defmodule Enviable do
   ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: invalid `:downcase` value (expected boolean or one of :default, :ascii, :greek, :turkic)
 
   iex> get_env_as_boolean("FLAG", truthy: ["oui"], falsy: ["non"])
-  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:truthy` and `:falsy` are mutually exclusive
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:truthy` and `:falsy` cannot both be provided
+
+  iex> put_env("ECTO_IPV6", "true")
+  iex> get_env_as_boolean("ECTO_IPV6", then: [:inet6], else: [])
+  [:inet6]
+  iex> get_env_as_boolean("UNSET", then: [:inet6], else: [])
+  []
   ```
   """
   @doc since: "1.3.0"
@@ -437,7 +448,7 @@ defmodule Enviable do
   @spec get_env_as_boolean(
           String.t(),
           boolean() | [unquote(Schema.option_typespec(:boolean))]
-        ) :: boolean()
+        ) :: boolean() | term()
   def get_env_as_boolean(varname, opts \\ [])
   def get_env_as_boolean(varname, default) when is_boolean(default), do: get_env_as(varname, :boolean, default: default)
   def get_env_as_boolean(varname, opts), do: get_env_as(varname, :boolean, opts)
@@ -450,8 +461,8 @@ defmodule Enviable do
 
   #{Schema.docs(:charlist)}
 
-  A shorthand for the `default` value may be provided as a `t:binary/0` (there is no guard
-  for `t:charlist/0`).
+  The `default` may be passed _either_ as a `t:binary/0` or `t:charlist/0` value, _or_ in
+  options as `default: value` — not both.
 
   ### Examples
 
@@ -460,6 +471,9 @@ defmodule Enviable do
   nil
 
   iex> get_env_as_charlist("UNDEFINED", "default")
+  ~c"default"
+
+  iex> get_env_as_charlist("UNDEFINED", ~c"default")
   ~c"default"
 
   iex> get_env_as_charlist("UNDEFINED", default: "default")
@@ -477,14 +491,21 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec get_env_as_charlist(
           String.t(),
-          String.t() | [unquote(Schema.option_typespec(:charlist))]
+          String.t() | charlist | [unquote(Schema.option_typespec(:charlist))]
         ) :: nil | charlist()
   def get_env_as_charlist(varname, opts \\ [])
 
-  def get_env_as_charlist(varname, default) when is_binary(default),
-    do: get_env_as(varname, :charlist, default: default)
+  def get_env_as_charlist(varname, default) when is_binary(default) do
+    get_env_as(varname, :charlist, default: default)
+  end
 
-  def get_env_as_charlist(varname, opts), do: get_env_as(varname, :charlist, opts)
+  def get_env_as_charlist(varname, opts) do
+    if is_list(opts) and Keyword.keyword?(opts) do
+      get_env_as(varname, :charlist, opts)
+    else
+      get_env_as(varname, :charlist, default: opts)
+    end
+  end
 
   @doc """
   Returns the value of an environment variable converted to a `t:integer/0` value or
@@ -495,8 +516,8 @@ defmodule Enviable do
 
   #{Schema.docs(:integer)}
 
-  A shorthand for the `default` value may be provided as a `t:integer/0` or `t:binary/0`
-  value.
+  The `default` may be passed _either_ as a `t:integer/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
 
   Failure to parse a binary string `default` or the value of the environment variable will
   result in an exception.
@@ -557,8 +578,8 @@ defmodule Enviable do
 
   #{Schema.docs(:float)}
 
-  A shorthand for the `default` value may be provided as a `t:float/0`, `t:integer/0`, or
-  `t:binary/0` value.
+  The `default` may be passed _either_ as a `t:float/0`, `t:integer/0`, or `t:binary/0`
+  value, _or_ in options as `default: value` — not both.
 
   ### Examples
 
@@ -659,8 +680,8 @@ defmodule Enviable do
 
   #{Schema.docs(:module)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0`
-  value.
+  The `default` may be passed _either_ as a `t:atom/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
   """
 
   @doc """
@@ -752,8 +773,8 @@ defmodule Enviable do
 
   #{Schema.docs(:log_level)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0`
-  value.
+  The `default` may be passed _either_ as a `t:atom/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
 
   ### Examples
 
@@ -1196,8 +1217,8 @@ defmodule Enviable do
 
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list/2`)
 
-  See `Enviable.Conversion` for supported type conversions and options. Any provided
-  `:default` value is ignored in `fetch_env_as/3` and the related `fetch_env_as_*`
+  See `Enviable.Conversion` for supported type conversions and options. `:default` and
+  `:or_raise` options are ignored in `fetch_env_as/3` and the related `fetch_env_as_*`
   functions.
 
   ### Examples
@@ -1252,14 +1273,14 @@ defmodule Enviable do
   def fetch_env_as(varname, type, opts \\ []) when is_list(opts) do
     case Codex.fetch_env(varname) do
       :error -> :error
-      {:ok, value} -> {:ok, Conversion.convert_as(value, type, Keyword.delete(opts, :default))}
+      {:ok, value} -> {:ok, Conversion.convert_as(value, type, Keyword.drop(opts, [:default, :or_raise]))}
     end
   end
 
   atom_options = """
   ### Options
 
-  #{Schema.docs(:atom, except: [:default])}
+  #{Schema.docs(:atom, except: [:default, :or_raise])}
   """
 
   @doc """
@@ -1289,7 +1310,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_atom(
           String.t(),
-          [unquote(Schema.option_typespec(:atom, except: [:default]))]
+          [unquote(Schema.option_typespec(:atom, except: [:default, :or_raise]))]
         ) :: {:ok, atom()} | :error
   def fetch_env_as_atom(varname, opts \\ []) do
     fetch_env_as(varname, :atom, opts)
@@ -1323,7 +1344,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_safe_atom(
           String.t(),
-          [unquote(Schema.option_typespec(:safe_atom, except: [:default]))]
+          [unquote(Schema.option_typespec(:safe_atom, except: [:default, :or_raise]))]
         ) :: {:ok, atom()} | :error
   def fetch_env_as_safe_atom(varname, opts \\ []) do
     fetch_env_as(varname, :safe_atom, opts)
@@ -1339,7 +1360,7 @@ defmodule Enviable do
 
   ### Options
 
-  #{Schema.docs(:boolean, except: [:default])}
+  #{Schema.docs(:boolean, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1380,8 +1401,8 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_boolean(
           String.t(),
-          [unquote(Schema.option_typespec(:boolean, except: [:default]))]
-        ) :: {:ok, boolean} | :error
+          [unquote(Schema.option_typespec(:boolean, except: [:default, :or_raise]))]
+        ) :: {:ok, boolean() | term()} | :error
   def fetch_env_as_boolean(varname, opts \\ []) do
     fetch_env_as(varname, :boolean, opts)
   end
@@ -1414,7 +1435,7 @@ defmodule Enviable do
 
   ### Options
 
-  #{Schema.docs(:integer, except: [:default])}
+  #{Schema.docs(:integer, except: [:default, :or_raise])}
 
   Failure to parse the value of the environment variable will result in an exception.
 
@@ -1441,7 +1462,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_integer(
           String.t(),
-          [unquote(Schema.option_typespec(:integer, except: [:default]))]
+          [unquote(Schema.option_typespec(:integer, except: [:default, :or_raise]))]
         ) :: {:ok, integer()} | :error
   def fetch_env_as_integer(varname, opts \\ []) do
     fetch_env_as(varname, :integer, opts)
@@ -1480,7 +1501,7 @@ defmodule Enviable do
 
   ### Options
 
-  #{Schema.docs(:json, except: [:default])}
+  #{Schema.docs(:json, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1501,7 +1522,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_json(
           String.t(),
-          [unquote(Schema.option_typespec(:json, except: [:default]))]
+          [unquote(Schema.option_typespec(:json, except: [:default, :or_raise]))]
         ) :: {:ok, Conversion.json()} | :error
   def fetch_env_as_json(varname, opts \\ []) do
     fetch_env_as(varname, :json, opts)
@@ -1510,7 +1531,7 @@ defmodule Enviable do
   module_options = """
   ### Options
 
-  #{Schema.docs(:module, except: [:default])}
+  #{Schema.docs(:module, except: [:default, :or_raise])}
   """
 
   @doc """
@@ -1540,7 +1561,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_module(
           String.t(),
-          [unquote(Schema.option_typespec(:module, except: [:default]))]
+          [unquote(Schema.option_typespec(:module, except: [:default, :or_raise]))]
         ) :: {:ok, module()} | :error
   def fetch_env_as_module(varname, opts \\ []) do
     fetch_env_as(varname, :module, opts)
@@ -1575,7 +1596,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_safe_module(
           String.t(),
-          [unquote(Schema.option_typespec(:safe_module, except: [:default]))]
+          [unquote(Schema.option_typespec(:safe_module, except: [:default, :or_raise]))]
         ) :: {:ok, module()} | :error
   def fetch_env_as_safe_module(varname, opts \\ []) do
     fetch_env_as(varname, :safe_module, opts)
@@ -1609,7 +1630,7 @@ defmodule Enviable do
 
   ### Options
 
-  #{Schema.docs(:pem, except: [:default])}
+  #{Schema.docs(:pem, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1626,7 +1647,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_pem(
           String.t(),
-          [unquote(Schema.option_typespec(:pem))]
+          [unquote(Schema.option_typespec(:pem, except: [:or_raise]))]
         ) :: {:ok, Conversion.pem()} | :error
   def fetch_env_as_pem(varname, opts \\ []) do
     fetch_env_as(varname, :pem, opts)
@@ -1702,7 +1723,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:base16, as: :encoded, except: [:default])}
+  #{Schema.docs(:base16, as: :encoded, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1728,7 +1749,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_base16(
           String.t(),
-          [unquote(Schema.option_typespec(:base16, as: :encoded, except: [:default]))]
+          [unquote(Schema.option_typespec(:base16, as: :encoded, except: [:default, :or_raise]))]
         ) :: :error | {:ok, term()}
   def fetch_env_as_base16(varname, opts \\ []) do
     {type, opts} =
@@ -1746,7 +1767,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:base32, as: :encoded, except: [:default])}
+  #{Schema.docs(:base32, as: :encoded, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1772,7 +1793,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_base32(
           String.t(),
-          [unquote(Schema.option_typespec(:base32, as: :encoded, except: [:default]))]
+          [unquote(Schema.option_typespec(:base32, as: :encoded, except: [:default, :or_raise]))]
         ) :: :error | {:ok, term()}
   def fetch_env_as_base32(varname, opts \\ []) do
     {type, opts} =
@@ -1790,7 +1811,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:hex32, as: :encoded, except: [:default])}
+  #{Schema.docs(:hex32, as: :encoded, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1816,7 +1837,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_hex32(
           String.t(),
-          [unquote(Schema.option_typespec(:hex32, as: :encoded, except: [:default]))]
+          [unquote(Schema.option_typespec(:hex32, as: :encoded, except: [:default, :or_raise]))]
         ) :: :error | {:ok, term()}
   def fetch_env_as_hex32(varname, opts \\ []) do
     {type, opts} =
@@ -1834,7 +1855,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:base64, as: :encoded, except: [:default])}
+  #{Schema.docs(:base64, as: :encoded, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1860,7 +1881,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_base64(
           String.t(),
-          [unquote(Schema.option_typespec(:base64, as: :encoded, except: [:default]))]
+          [unquote(Schema.option_typespec(:base64, as: :encoded, except: [:default, :or_raise]))]
         ) :: :error | {:ok, term()}
   def fetch_env_as_base64(varname, opts \\ []) do
     {type, opts} =
@@ -1878,7 +1899,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:url_base64, as: :encoded, except: [:default])}
+  #{Schema.docs(:url_base64, as: :encoded, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1904,7 +1925,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_url_base64(
           String.t(),
-          [unquote(Schema.option_typespec(:url_base64, as: :encoded, except: [:default]))]
+          [unquote(Schema.option_typespec(:url_base64, as: :encoded, except: [:default, :or_raise]))]
         ) :: :error | {:ok, term()}
   def fetch_env_as_url_base64(varname, opts \\ []) do
     {type, opts} =
@@ -1921,7 +1942,7 @@ defmodule Enviable do
 
   ## Options
 
-  #{Schema.docs(:list, as: :list, except: [:default])}
+  #{Schema.docs(:list, as: :list, except: [:default, :or_raise])}
 
   ### Examples
 
@@ -1943,7 +1964,7 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as_list(
           String.t(),
-          [unquote(Schema.option_typespec(:list, as: :list, except: [:default]))]
+          [unquote(Schema.option_typespec(:list, as: :list, except: [:default, :or_raise]))]
         ) :: :error | {:ok, list()}
   def fetch_env_as_list(varname, opts \\ []) do
     {type, opts} =
@@ -2010,9 +2031,8 @@ defmodule Enviable do
 
   - `:list` (`t:Enviable.Conversion.encoded_list/0`, `fetch_env_as_list!/2`)
 
-  See `Enviable.Conversion` for supported type conversions and options. Any provided
-  `:default` value is ignored in `fetch_env_as!/3` and the related `fetch_env_as_*!`
-  functions.
+  See `Enviable.Conversion` for supported type conversions and options. The `:default`
+  option is ignored in `fetch_env_as!/3` and the related `fetch_env_as_*!` functions.
 
   ### Examples
 
@@ -2064,9 +2084,14 @@ defmodule Enviable do
   @doc group: "Conversion"
   @spec fetch_env_as!(String.t(), Conversion.conversion(), keyword()) :: term()
   def fetch_env_as!(varname, type, opts \\ []) when is_list(opts) do
+    {fetch_opts, opts} =
+      opts
+      |> Keyword.delete(:default)
+      |> Keyword.split([:or_raise])
+
     varname
-    |> Codex.fetch_env!()
-    |> Conversion.convert_as(type, Keyword.delete(opts, :default))
+    |> Codex.fetch_env!(fetch_opts)
+    |> Conversion.convert_as(type, opts)
   end
 
   @doc """
@@ -2188,7 +2213,7 @@ defmodule Enviable do
   @spec fetch_env_as_boolean!(
           String.t(),
           [unquote(Schema.option_typespec(:boolean, except: [:default]))]
-        ) :: boolean
+        ) :: boolean() | term()
   def fetch_env_as_boolean!(varname, opts \\ []) do
     fetch_env_as!(varname, :boolean, opts)
   end
@@ -2231,6 +2256,9 @@ defmodule Enviable do
   iex> fetch_env_as_integer!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
+  iex> fetch_env_as_integer!("UNSET", or_raise: "PORT must be set")
+  ** (RuntimeError) PORT must be set
+
   iex> put_env("PORT", "5432")
   iex> fetch_env_as_integer!("PORT")
   5432
@@ -2264,8 +2292,8 @@ defmodule Enviable do
 
     #{Schema.docs(:decimal)}
 
-    A shorthand for the `default` value may be provided as a `t:Decimal.t/0`, `t:float/0`,
-    `t:integer/0`, or `t:binary/0` value.
+    The `default` may be passed _either_ as a `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
+    or `t:binary/0` value, _or_ in options as `default: value` — not both.
 
     ### Examples
 
@@ -3168,15 +3196,18 @@ defmodule Enviable do
   iex> fetch_env!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
+  iex> fetch_env!("UNSET", or_raise: ~S("UNSET" is required))
+  ** (RuntimeError) "UNSET" is required
+
   iex> put_env("PORT", "4000")
   iex> fetch_env!("PORT")
   "4000"
   ```
   """
   @doc group: "Env"
-  @spec fetch_env!(String.t() | Value.t()) :: String.t()
-  def fetch_env!(var) do
-    Value.__unwrap__(Codex.fetch_env!(var))
+  @spec fetch_env!(String.t() | Value.t(), [{:or_raise, String.t()}]) :: String.t()
+  def fetch_env!(var, opts \\ []) do
+    Value.__unwrap__(Codex.fetch_env!(var, opts))
   end
 
   @doc """

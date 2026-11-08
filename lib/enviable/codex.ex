@@ -1,22 +1,12 @@
 defmodule Enviable.Codex do
   @moduledoc """
-  Enviable.Codex is a small collection of functions to improve Elixir project
-  configuration via environment variables as proposed under the [12-factor][12f]
-  application model. It works well with configuration environment loaders like
-  [Dotenvy][Dotenvy] or [Nvir][nvir] and provides robust value conversion like
-  [jetenv][jetenv].
+  Enviable.Codex is a collection of functions to improve Elixir project configuration via
+  environment variables as proposed under the [12-factor][12f] application model. It works
+  well with configuration environment loaders like [Dotenvy][Dotenvy] or [Nvir][nvir] and
+  provides robust value conversion like [jetenv][jetenv].
 
-  It differs from the current `Enviable` interface by separating value retrieval from
-  conversion.
-
-  ```elixir
-  port = fetch_env!("PORT") |> as_integer()
-  ```
-
-  The full Enviable conversion capabilities are present, and there are additional value
-  retrieval functions that enable working with maps returned from Dotenvy or Nvir.
-  Enviable.Codex retrieval functions returns a structured value with a `String.Chars`
-  protocol implementation, not `String.t() | nil`.
+  `Enviable` and Enviable.Codex are alternative interfaces for the same purpose. They are
+  not interoperable. Use one or the other, not both in the same module.
 
   ### Usage
 
@@ -55,11 +45,8 @@ defmodule Enviable.Codex do
   variable (such as through `/proc/<pid>/environ` on Linux) and anything that read the
   environment variable prior to the `once` call keeps its copy.
 
-  Both Dotenvy and Nvir will return resolved environment maps
-  (`t:Enviable.Value.env_map/0`) that may be used instead of the environment variables
-  (there is no `once` family of functions for map retrieval, as the maps exist only as
-  long as the configuration provider).
-
+  Both Dotenvy and Nvir return resolved environment maps (`t:Enviable.Value.env_map/0`)
+  that may be used instead of the environment variable table.
 
   ```elixir
   # config/runtime.exs
@@ -87,7 +74,7 @@ defmodule Enviable.Codex do
 
   > #### Info {: .info}
   >
-  > Both Dotenvy and NVir provide `env!/2` functions that have converters. These can be
+  > Both Dotenvy and NVir provide `env!/2` functions including converters. These can be
   > used, but they are narrower than the converters provided in Enviable.
   >
   > When using NVir, it automatically stores the updated values in the environment. The
@@ -215,6 +202,13 @@ defmodule Enviable.Codex do
   ["1", "2", "3"]
   iex> get_env("LIST") |> as({:list, :integer}, delimiter: ";")
   [1, 2, 3]
+
+  iex> get_env("UNSET") |> as(:integer, or_raise: ~S("UNSET" must be provided.))
+  ** (RuntimeError) "UNSET" must be provided.
+
+  iex> put_env("PORT", "4000")
+  iex> get_env("PORT") |> as(:integer, or_raise: ~S("UNSET" must be provided.))
+  4000
   ```
   """
   @doc since: "3.0.0"
@@ -232,7 +226,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:atom)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` value.
+  The `default` may be passed _either_ as a `t:atom/0` value, _or_ in options as
+  `default: value` — not both.
   """
 
   @doc """
@@ -331,7 +326,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:boolean)}
 
-  A shorthand value for the `default` option may be provided as a `t:boolean/0` value.
+  The `default` may be passed _either_ as a `t:boolean/0` value, _or_ in options as
+  `default: value` — not both.
 
   ### Examples
 
@@ -376,7 +372,24 @@ defmodule Enviable.Codex do
   ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: invalid `:downcase` value (expected boolean or one of :default, :ascii, :greek, :turkic)
 
   iex> get_env("FLAG") |> as_boolean(truthy: ["oui"], falsy: ["non"])
-  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:truthy` and `:falsy` are mutually exclusive
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:truthy` and `:falsy` cannot both be provided
+
+  iex> put_env("ECTO_IPV6", "true")
+  iex> get_env("ECTO_IPV6") |> as_boolean(then: [:inet6], else: [])
+  [:inet6]
+
+  iex> put_env("ECTO_IPV6", "false")
+  iex> get_env("ECTO_IPV6") |> as_boolean(then: [:inet6], else: [])
+  []
+
+  iex> get_env("ECTO_IPV6_UNSET") |> as_boolean(default: true, then: [:inet6], else: [])
+  [:inet6]
+
+  iex> get_env("FLAG") |> as_boolean(then: [:inet6])
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:then` and `:else` must be provided together
+
+  iex> get_env("FLAG") |> as_boolean(default: false, or_raise: "FLAG must be set")
+  ** (Enviable.OptionError) could not convert environment variable "FLAG" to type boolean: `:default` and `:or_raise` cannot both be provided
   ```
   """
   @doc since: "3.0.0"
@@ -384,7 +397,7 @@ defmodule Enviable.Codex do
   @spec as_boolean(
           Value.t(),
           boolean() | [unquote(Schema.option_typespec(:boolean))]
-        ) :: boolean()
+        ) :: boolean() | term()
   def as_boolean(value, opts \\ [])
   def as_boolean(value, default) when is_boolean(default), do: as(value, :boolean, default: default)
   def as_boolean(value, opts), do: as(value, :boolean, opts)
@@ -397,7 +410,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:charlist)}
 
-  A shorthand for the `default` value may be provided as a `t:binary/0` (there is no guard for `t:charlist/0`).
+  The `default` may be passed _either_ as a `t:binary/0` or `t:charlist/0` value, _or_ in
+  options as `default: value` — not both.
 
   ### Examples
 
@@ -406,6 +420,9 @@ defmodule Enviable.Codex do
   nil
 
   iex> get_env("UNDEFINED") |> as_charlist("default")
+  ~c"default"
+
+  iex> get_env("UNDEFINED") |> as_charlist(~c"default")
   ~c"default"
 
   iex> get_env("UNDEFINED") |> as_charlist(default: "default")
@@ -423,11 +440,21 @@ defmodule Enviable.Codex do
   @doc group: "Conversion"
   @spec as_charlist(
           Value.t(),
-          String.t() | [unquote(Schema.option_typespec(:charlist))]
+          String.t() | charlist() | [unquote(Schema.option_typespec(:charlist))]
         ) :: nil | charlist()
   def as_charlist(value, opts \\ [])
-  def as_charlist(value, default) when is_binary(default), do: as(value, :charlist, default: default)
-  def as_charlist(value, opts), do: as(value, :charlist, opts)
+
+  def as_charlist(value, default) when is_binary(default) do
+    as(value, :charlist, default: default)
+  end
+
+  def as_charlist(value, opts) do
+    if is_list(opts) and Keyword.keyword?(opts) do
+      as(value, :charlist, opts)
+    else
+      as(value, :charlist, default: opts)
+    end
+  end
 
   @doc """
   Returns the value as a `t:String.t/0` or a default value if the variable is unset. If
@@ -437,7 +464,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:string)}
 
-  A shorthand for the `default` value may be provided as a `t:String.t/0`.
+  The `default` may be passed _either_ as a `t:String.t/0` value, _or_ in options as
+  `default: value` — not both.
 
   ### Examples
 
@@ -471,7 +499,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:integer)}
 
-  A shorthand for the `default` value may be provided as a `t:integer/0` or `t:binary/0` value.
+  The `default` may be passed _either_ as a `t:integer/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
 
   Failure to parse a binary string `default` or the value of the environment variable will result in an exception.
 
@@ -530,7 +559,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:float)}
 
-  A shorthand for the `default` value may be provided as a `t:float/0`, `t:integer/0`, or `t:binary/0` value.
+  The `default` may be passed _either_ as a `t:float/0`, `t:integer/0`, or `t:binary/0`
+  value, _or_ in options as `default: value` — not both.
 
   ### Examples
 
@@ -631,7 +661,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:module)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0` value.
+  The `default` may be passed _either_ as a `t:atom/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
   """
 
   @doc """
@@ -720,7 +751,8 @@ defmodule Enviable.Codex do
 
   #{Schema.docs(:log_level)}
 
-  A shorthand for the `default` option may be provided as a `t:atom/0` or `t:binary/0` value.
+  The `default` may be passed _either_ as a `t:atom/0` or `t:binary/0` value, _or_ in
+  options as `default: value` — not both.
 
   ### Examples
 
@@ -1119,7 +1151,8 @@ defmodule Enviable.Codex do
 
     #{Schema.docs(:decimal)}
 
-    A shorthand for the `default` value may be provided as a `t:Decimal.t/0`, `t:float/0`, `t:integer/0`, or `t:binary/0` value.
+    The `default` may be passed _either_ as a `t:Decimal.t/0`, `t:float/0`, `t:integer/0`,
+    or `t:binary/0` value, _or_ in options as `default: value` — not both.
 
     ### Examples
 
@@ -1346,6 +1379,60 @@ defmodule Enviable.Codex do
   defdelegate secure?(value), to: Value
 
   @doc """
+  Returns `true` if the environment variable is set.
+
+  Accepts a variable name or a `t:Value.t/0` (its name is used). The variable is read
+  non-destructively from the environment; no `:default` is applied. For once-only
+  testing, use `get_env_once/1` explicitly (`get_env_once("SECRET_KEY") |> set?()`).
+
+  ### Examples
+
+  ```elixir
+  iex> env_set?("UNSET")
+  false
+  iex> env_set?(%Enviable.Value{name: "UNSET", value: nil})
+  false
+
+  iex> put_env("PORT", "4000")
+  iex> env_set?("PORT")
+  true
+  iex> env_set?(%Enviable.Value{name: "PORT", value: nil})
+  true
+  ```
+  """
+  @doc since: "3.1.0"
+  @doc group: "Env"
+  @spec env_set?(String.t() | Value.t()) :: boolean()
+  def env_set?(name_or_value), do: not env_unset?(name_or_value)
+
+  @doc """
+  Returns `true` if the environment variable is unset.
+
+  Accepts a variable name or a `t:Value.t/0` (its name is used). The variable is read
+  non-destructively from the environment; no `:default` is applied.
+
+  ### Examples
+
+  ```elixir
+  iex> env_unset?("UNSET")
+  true
+  iex> env_unset?(%Value{name: "UNSET", value: nil})
+  true
+
+  iex> put_env("PORT", "4000")
+  iex> env_unset?("PORT")
+  false
+  iex> env_unset?(%Enviable.Value{name: "PORT", value: nil})
+  false
+  ```
+  """
+  @doc since: "3.1.0"
+  @doc group: "Env"
+  @spec env_unset?(String.t() | Value.t()) :: boolean()
+  def env_unset?(%Value{name: name}), do: env_unset?(name)
+  def env_unset?(name) when is_binary(name), do: is_nil(System.get_env(name))
+
+  @doc """
   If the Value is set and not a secure value, makes it secure by wrapping its inner value
   in a closure.
 
@@ -1441,6 +1528,9 @@ defmodule Enviable.Codex do
   iex> fetch_env!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
 
+  iex> fetch_env!("UNSET", or_raise: ~S("UNSET" must be provided.))
+  ** (RuntimeError) "UNSET" must be provided.
+
   iex> put_env("PORT", "4000")
   iex> value = Enviable.Codex.fetch_env!("PORT")
   iex> value
@@ -1453,11 +1543,23 @@ defmodule Enviable.Codex do
   """
   @doc since: "3.0.0"
   @doc group: "Env"
-  @spec fetch_env!(String.t() | Value.t()) :: Value.t()
-  def fetch_env!(%Value{name: name}), do: fetch_env!(name)
+  @spec fetch_env!(String.t() | Value.t(), [{:or_raise, String.t()}]) :: Value.t()
+  def fetch_env!(name, opts \\ [])
 
-  def fetch_env!(name) do
-    secure_if_paranoid(name, System.fetch_env!(name), :env)
+  def fetch_env!(%Value{name: name}, opts), do: fetch_env!(name, opts)
+
+  def fetch_env!(name, opts) do
+    case System.fetch_env(name) do
+      {:ok, value} ->
+        secure_if_paranoid(name, value, :env)
+
+      :error ->
+        if message = Keyword.get(opts, :or_raise) do
+          raise message
+        end
+
+        raise System.EnvError, env: name
+    end
   end
 
   @doc """
@@ -1495,10 +1597,10 @@ defmodule Enviable.Codex do
   def fetch_env_once(%Value{name: name}), do: fetch_env_once(name)
 
   def fetch_env_once(name) do
-    case System.fetch_env(name) do
+    case fetch_env(name) do
       {:ok, value} ->
         delete_env(name)
-        {:ok, secure(%Value{name: name, value: value, source: :env})}
+        {:ok, secure(value)}
 
       :error ->
         :error
@@ -1515,6 +1617,9 @@ defmodule Enviable.Codex do
   ```elixir
   iex> fetch_env_once!("UNSET")
   ** (System.EnvError) could not fetch environment variable "UNSET" because it is not set
+
+  iex> fetch_env_once!("UNSET", or_raise: ~S("UNSET" must be provided.))
+  ** (RuntimeError) "UNSET" must be provided.
 
   iex> put_env("PORT", "4000")
   iex> value = Enviable.Codex.fetch_env_once!("PORT")
@@ -1534,13 +1639,15 @@ defmodule Enviable.Codex do
   """
   @doc since: "3.0.0"
   @doc group: "Env"
-  @spec fetch_env_once!(String.t() | Value.t()) :: Value.t()
-  def fetch_env_once!(%Value{name: name}), do: fetch_env_once!(name)
+  @spec fetch_env_once!(String.t() | Value.t(), [{:or_raise, String.t()}]) :: Value.t()
+  def fetch_env_once!(name, opts \\ [])
 
-  def fetch_env_once!(name) do
-    value = System.fetch_env!(name)
+  def fetch_env_once!(%Value{name: name}, opts), do: fetch_env_once!(name, opts)
+
+  def fetch_env_once!(name, opts) do
+    value = fetch_env!(name, opts)
     delete_env(name)
-    secure(%Value{name: name, source: :env, value: value})
+    secure(value)
   end
 
   @doc """
@@ -1771,8 +1878,6 @@ defmodule Enviable.Codex do
     put_env(get_env(name, value))
   end
 
-  # ---
-
   @doc """
   Returns the `t:Value.t/0` of the variable from the `t:Value.env_map/0` or `:error` if
   not found.
@@ -1821,6 +1926,9 @@ defmodule Enviable.Codex do
   iex> fetch_env_map!(%{}, "UNSET")
   ** (Enviable.EnvMapError) could not fetch environment map variable "UNSET" because it is not set
 
+  iex> fetch_env_map!(%{}, "UNSET", or_raise: ~S("UNSET" must be provided.))
+  ** (RuntimeError) "UNSET" must be provided.
+
   iex> value = Enviable.Codex.fetch_env_map!(%{"PORT" => "4000"}, "PORT")
   iex> value
   #Enviable.Value<name: "PORT", source: :map, ...>
@@ -1834,13 +1942,21 @@ defmodule Enviable.Codex do
   """
   @doc since: "3.0.0"
   @doc group: "EnvMap"
-  @spec fetch_env_map!(Value.env_map(), String.t() | Value.t()) :: Value.t()
-  def fetch_env_map!(map, %Value{name: name}), do: fetch_env_map!(map, name)
+  @spec fetch_env_map!(Value.env_map(), String.t() | Value.t(), [{:or_raise, String.t()}]) :: Value.t()
+  def fetch_env_map!(map, name, opts \\ [])
+  def fetch_env_map!(map, %Value{name: name}, opts), do: fetch_env_map!(map, name, opts)
 
-  def fetch_env_map!(map, name) when is_binary(name) do
+  def fetch_env_map!(map, name, opts) when is_binary(name) do
     case Map.fetch(map, name) do
-      {:ok, value} -> secure_if_paranoid(name, value, :map)
-      :error -> raise Enviable.EnvMapError, env: name
+      {:ok, value} ->
+        secure_if_paranoid(name, value, :map)
+
+      :error ->
+        if message = Keyword.get(opts, :or_raise) do
+          raise message
+        end
+
+        raise Enviable.EnvMapError, env: name
     end
   end
 
@@ -1934,12 +2050,14 @@ defmodule Enviable.Codex do
     end)
   end
 
-  # The following functions are from system.ex in the Elixir source code.
+  # The following functions are adapted from elixir-lang/elixir:lib/elixir/lib/system.ex.
   defp os_unsetenv(key) do
     :os.unsetenv(to_charlist(key))
   end
 
-  defp os_putenv(key, val) do
+  defp os_putenv(key, val) when is_atom(key), do: os_putenv(Atom.to_string(key), val)
+
+  defp os_putenv(key, val) when is_binary(key) do
     key = to_charlist(key)
 
     case :string.find(key, "=") do
@@ -1947,6 +2065,11 @@ defmodule Enviable.Codex do
         :os.putenv(key, to_charlist(val))
 
       _ ->
+        key =
+          key
+          |> to_string()
+          |> String.replace(~r/\=.+$/, "=REDEACTED")
+
         raise ArgumentError,
               "cannot execute put_env/1 for key with \"=\", got: #{inspect(key)}"
     end

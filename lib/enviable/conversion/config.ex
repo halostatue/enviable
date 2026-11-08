@@ -1,9 +1,10 @@
 defmodule Enviable.Conversion.Config do
+  @moduledoc false
+
   # Conversion option validation and preparation.
   #
-  # parse/2 validates the options for a single conversion layer against its schema
-  # (Enviable.Conversion.Schema), then applies the checks and preparation that a schema
-  # cannot express:
+  # parse/2 validates the options for a single conversion layer against its schema, then
+  # applies the checks and preparation that a schema cannot express:
   #
   # - cross-key constraints (`downcase` vs `upcase`, `truthy` vs `falsy`, non-empty
   #   `allowed`, `default` in `allowed`)
@@ -16,8 +17,6 @@ defmodule Enviable.Conversion.Config do
   #
   # List defaults are not prepared here. A list default is converted (or checked) by
   # Enviable.Conversion only when the value is unset, using the element type's config.
-
-  @moduledoc false
 
   alias Enviable.Conversion.Schema
   alias Enviable.Conversion.TimeoutParser
@@ -44,8 +43,38 @@ defmodule Enviable.Conversion.Config do
   """
   @spec parse(atom(), keyword()) :: {:ok, map()} | error()
   def parse(type, opts) do
-    with {:ok, opts} <- Schema.validate(type, opts) do
-      prepare(type, Map.new(opts))
+    with :ok <- check_or_raise(opts),
+         :ok <- check_then_else(type, opts),
+         {:ok, opts} <- Schema.validate(type, opts),
+         {:ok, config} <- prepare(type, Map.new(opts)) do
+      {:ok, apply_or_raise(config, opts)}
+    end
+  end
+
+  # `:or_raise` is mutually exclusive with `:default`.
+  defp check_or_raise(opts) do
+    if Keyword.has_key?(opts, :or_raise) and Keyword.has_key?(opts, :default) do
+      {:error, [:default, :or_raise], "`:default` and `:or_raise` cannot both be provided"}
+    else
+      :ok
+    end
+  end
+
+  # `:then` and `:else` (boolean only) must be provided together.
+  defp check_then_else(:boolean, opts) do
+    case {Keyword.has_key?(opts, :then), Keyword.has_key?(opts, :else)} do
+      {true, false} -> {:error, :else, "`:then` and `:else` must be provided together"}
+      {false, true} -> {:error, :then, "`:then` and `:else` must be provided together"}
+      _ -> :ok
+    end
+  end
+
+  defp check_then_else(_type, _opts), do: :ok
+
+  defp apply_or_raise(config, opts) do
+    case Keyword.fetch(opts, :or_raise) do
+      {:ok, message} -> Map.put(config, :or_raise, message)
+      :error -> config
     end
   end
 
@@ -59,8 +88,6 @@ defmodule Enviable.Conversion.Config do
       default(type, Keyword.fetch!(validated, :default), config)
     end
   end
-
-  # --- preparation
 
   defp prepare(type, opts) when type in [:atom, :safe_atom, :module, :safe_module] do
     with {:ok, casefold} <- casefold(opts),
@@ -77,6 +104,12 @@ defmodule Enviable.Conversion.Config do
         truthy: truthy,
         falsy: falsy
       }
+
+      config =
+        case Map.fetch(opts, :then) do
+          {:ok, then_value} -> Map.put(config, :map, {then_value, Map.fetch!(opts, :else)})
+          :error -> config
+        end
 
       with_default(:boolean, opts, config, false)
     end
@@ -124,8 +157,6 @@ defmodule Enviable.Conversion.Config do
         end
     end
   end
-
-  # --- defaults
 
   defp default(type, value, %{allowed: allowed}) when is_map(allowed) and type in [:atom, :safe_atom] do
     lookup = if is_atom(value), do: Atom.to_string(value), else: value
@@ -238,10 +269,8 @@ defmodule Enviable.Conversion.Config do
     end
   end
 
-  # --- cross-key checks and lookup tables
-
   defp casefold(%{downcase: _, upcase: _}),
-    do: {:error, [:downcase, :upcase], "`:downcase` and `:upcase` are mutually exclusive"}
+    do: {:error, [:downcase, :upcase], "`:downcase` and `:upcase` cannot both be provided"}
 
   defp casefold(%{downcase: mode}), do: {:ok, {:downcase, casefold_mode(mode)}}
   defp casefold(%{upcase: mode}), do: {:ok, {:upcase, casefold_mode(mode)}}
@@ -271,7 +300,7 @@ defmodule Enviable.Conversion.Config do
   defp allowed(_type, _opts), do: {:ok, nil}
 
   defp boolean_matchers(%{truthy: _, falsy: _}),
-    do: {:error, [:truthy, :falsy], "`:truthy` and `:falsy` are mutually exclusive"}
+    do: {:error, [:truthy, :falsy], "`:truthy` and `:falsy` cannot both be provided"}
 
   defp boolean_matchers(%{truthy: []}), do: {:error, :truthy, "`:truthy` cannot be empty"}
   defp boolean_matchers(%{falsy: []}), do: {:error, :falsy, "`:falsy` cannot be empty"}

@@ -1,10 +1,8 @@
 defmodule Enviable.Conversion.Schema.TypeDoc do
+  @moduledoc false
+
   # Describes the NimbleOptions types used by Enviable.Conversion.Schema, as Markdown (for
   # `:type_doc`) or plain text (for error messages).
-  #
-  # This is a separate module because Enviable.Conversion.Schema calls it while compiling.
-
-  @moduledoc false
 
   @names %{
     atom: {"`t:atom/0`", "atom"},
