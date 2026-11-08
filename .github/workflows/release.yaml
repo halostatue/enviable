@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish to hex.pm
+
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write # Required for workload identities
+      contents: read
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            builds.hex.pm:443
+            coveralls.io:443
+            github.com:443
+            release-assets.githubusercontent.com:443
+            repo.hex.pm:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: '29'
+          elixir-version: '1.20'
+
+      - name: Publish with Mix
+        run: |
+          mix deps.get
+          mix hex.publish --yes
